@@ -1,0 +1,13 @@
+
+/* You can add any custom CSS here if needed */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif; /* Fallback sans-serif if Inter not loaded */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
