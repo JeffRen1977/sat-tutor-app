@@ -1,7 +1,14 @@
 // backend/services/questionService.js
 const { db, admin } = require('../config/firebase'); // Import db and admin for FieldValue.serverTimestamp
+const { isUserAdmin } = require('./authService'); // Import the admin check function
 
 const addSatQuestion = async (questionData, createdByEmail) => {
+    // Check if the user adding the question is an admin
+    const isAdmin = await isUserAdmin(createdByEmail);
+    if (!isAdmin) {
+        throw new Error('Only administrators can add SAT questions.');
+    }
+
     const dataToSave = {
         subject: questionData.subject.toLowerCase(),
         type: questionData.type.toLowerCase(),
@@ -49,3 +56,4 @@ const fetchSatQuestions = async (subject, count = '1', difficulty, type) => {
 };
 
 module.exports = { addSatQuestion, fetchSatQuestions };
+
