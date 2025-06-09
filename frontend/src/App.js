@@ -71,7 +71,7 @@ function QuickLink({ text }) {
 
 function ProgressChart({ title }) {
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+        <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">{title}</h3>
             <div className="h-40 bg-gray-200 flex items-center justify-center rounded-md text-gray-500 text-sm">
                 [Chart Placeholder]
@@ -357,7 +357,7 @@ function StudyModules({ API_BASE_URL, userToken }) {
 
     const [mathProblem, setMathProblem] = useState('');
     const [mathSolution, setMathSolution] = useState('');
-    const [isLoadingMath, setIsLoadingMath] = useState(false);
+    const [isLoadingMath, setIsLoadingMath] = useState(false); // Fixed: ensure this is assignment, not arrow function
     const [mathError, setMathError] = useState('');
 
     const [questionSubject, setQuestionSubject] = useState('math');
@@ -1180,7 +1180,7 @@ function SettingsPage() {
 }
 
 // --- Main App Component ---
-function App() {
+export default function App() {
     const [currentPage, setCurrentPage] = useState('login');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1304,54 +1304,48 @@ function App() {
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="flex items-center justify-between p-4 bg-white shadow-md md:px-6">
+                    {isAuthenticated && (
+                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-600 hover:text-gray-900 focus:outline-none">
+                            <Menu className="w-6 h-6" />
+                        </button>
+                    )}
+                    <h1 className="text-2xl font-semibold text-gray-800 hidden md:block">SAT Study Assistant</h1>
                     {isAuthenticated ? (
-                        <>
-                            {/* Content when authenticated */}
-                            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <Menu className="w-6 h-6" />
+                        <div className="flex items-center space-x-4">
+                            <span className="text-gray-700 hidden sm:block">Welcome, {userEmail}!</span>
+                            <button
+                                onClick={handleLogout}
+                                className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md flex items-center"
+                            >
+                                <LogOut className="w-4 h-4 mr-2" /> Log Out
                             </button>
-                            <h1 className="text-2xl font-semibold text-gray-800 hidden md:block">SAT Study Assistant</h1>
-                            <div className="flex items-center space-x-4">
-                                <span className="text-gray-700 hidden sm:block">Welcome, {userEmail}!</span>
-                                <button
-                                    onClick={handleLogout}
-                                    className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md flex items-center"
-                                >
-                                    <LogOut className="w-4 h-4 mr-2" /> Log Out
-                                </button>
-                            </div>
-                        </>
+                        </div>
                     ) : (
-                        <>
-                            {/* Content when not authenticated (Login/Register buttons) */}
-                            <h1 className="text-2xl font-semibold text-gray-800 block">SAT Study Assistant</h1> {/* Added a default title for unauthenticated view */}
-                            <div className="flex items-center space-x-4">
-                                {currentPage === 'register' && (
-                                    <button
-                                        onClick={navigateToLoginAfterRegister}
-                                        className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md"
-                                    >
-                                        Back to Login
-                                    </button>
-                                )}
-                                {currentPage === 'login' && (
-                                    <button
-                                        onClick={navigateToRegister}
-                                        className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200 shadow-md"
-                                    >
-                                        Register
-                                    </button>
-                                )}
-                            </div>
-                        </>
+                        <div className="flex items-center space-x-4">
+                            {currentPage === 'register' && (
+                                <button
+                                    onClick={navigateToLoginAfterRegister}
+                                    className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md"
+                                >
+                                    Back to Login
+                                </button>
+                            )}
+                            {currentPage === 'login' && (
+                                <button
+                                    onClick={navigateToRegister}
+                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200 shadow-md"
+                                >
+                                    Register
+                                </button>
+                            )}
+                        </div>
                     )}
                 </header>
-                <main className="flex-1 overflow-y-auto p-4 md:p-6">
+
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 bg-gray-100">
                     {renderPage()}
                 </main>
             </div>
         </div>
     );
 }
-
-export default App;
