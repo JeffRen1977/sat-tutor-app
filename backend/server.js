@@ -1,5 +1,6 @@
-// server.js (Refactored Main Entry Point - Updated)
-
+// =====================================================================
+// --- File: backend/server.js ---
+// =====================================================================
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // Load environment variables
@@ -20,13 +21,15 @@ app.use(express.json());
 // --- Use Route Modules ---
 app.use('/api', authRoutes); // Auth routes: /api/register, /api/login
 app.use('/api', aiRoutes);   // AI routes: /api/chat, /api/vocabulary, etc.
-app.use('/api/questions', questionRoutes); // Question routes: /api/questions/add, /api/questions/fetch
+app.use('/api/questions', questionRoutes); // Question routes: /api/questions/add, /api/questions/fetch, /api/questions/generate
 app.use('/api/test_results', testResultRoutes); // New: Test results routes: /api/test_results/save, /api/test_results/fetch
 
 // Start the server
 app.listen(port, () => {
     console.log(`Backend server listening at http://localhost:${port}`);
 });
+
+
 
 
 

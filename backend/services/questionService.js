@@ -1,9 +1,14 @@
-// backend/services/questionService.js
+// =====================================================================
+// --- File: backend/services/questionService.js ---
+// =====================================================================
 const { db, admin } = require('../config/firebase'); // Import db and admin for FieldValue.serverTimestamp
 const { isUserAdmin } = require('./authService'); // Import the admin check function
 
 const addSatQuestion = async (questionData, createdByEmail) => {
     // Check if the user adding the question is an admin
+    // This check is duplicated here and in the route for clarity,
+    // but the primary enforcement happens via security rules and the route's middleware.
+    // For purely API-driven creation by admin, this check can be more robust.
     const isAdmin = await isUserAdmin(createdByEmail);
     if (!isAdmin) {
         throw new Error('Only administrators can add SAT questions.');
@@ -56,4 +61,3 @@ const fetchSatQuestions = async (subject, count = '1', difficulty, type) => {
 };
 
 module.exports = { addSatQuestion, fetchSatQuestions };
-

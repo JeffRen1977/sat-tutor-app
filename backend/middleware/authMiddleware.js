@@ -1,4 +1,6 @@
-// backend/middleware/authMiddleware.js
+// =====================================================================
+// --- File: backend/middleware/authMiddleware.js ---
+// =====================================================================
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../config/jwt'); // Import the secret
 
