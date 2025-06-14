@@ -17,4 +17,3 @@ try {
 const db = admin.firestore();
 
 module.exports = { db, admin }; // Export db and admin (for FieldValue.serverTimestamp)
-

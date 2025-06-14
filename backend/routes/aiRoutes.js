@@ -1,6 +1,4 @@
-// =====================================================================
-// --- File: backend/routes/aiRoutes.js ---
-// =====================================================================
+// backend/routes/aiRoutes.js
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware'); // Import auth middleware

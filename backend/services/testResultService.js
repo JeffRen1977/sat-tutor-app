@@ -1,6 +1,4 @@
-// =====================================================================
-// --- File: backend/services/testResultService.js ---
-// =====================================================================
+// backend/services/testResultService.js
 const { db, admin } = require('../config/firebase');
 
 /**
@@ -55,5 +53,5 @@ const getUserTestResults = async (userId, filters = {}) => {
     return { results };
 };
 
-module.exports = { saveUserTestResult, getUserTestResults };
+module.exports = { saveUserTestResult, getUserTestResults }
 

@@ -1,6 +1,4 @@
-// =====================================================================
-// --- File: backend/services/questionService.js ---
-// =====================================================================
+// backend/services/questionService.js
 const { db, admin } = require('../config/firebase'); // Import db and admin for FieldValue.serverTimestamp
 const { isUserAdmin } = require('./authService'); // Import the admin check function
 
@@ -23,6 +21,7 @@ const addSatQuestion = async (questionData, createdByEmail) => {
         explanation: questionData.explanation,
         difficulty: questionData.difficulty.toLowerCase(),
         isMultipleChoice: typeof questionData.isMultipleChoice === 'boolean' ? questionData.isMultipleChoice : (questionData.options ? true : false),
+        passageId: questionData.passageId || null, // NEW: Field to link to a passage document
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         createdBy: createdByEmail
     };
@@ -30,7 +29,7 @@ const addSatQuestion = async (questionData, createdByEmail) => {
     return { message: 'Question added successfully.', questionId: docRef.id };
 };
 
-const fetchSatQuestions = async (subject, count = '1', difficulty, type) => {
+const fetchSatQuestions = async (subject, count = '1', difficulty, type, passageId = null) => { // Added passageId parameter
     let query = db.collection('sat_questions').where('subject', '==', subject.toLowerCase());
 
     if (type) {
@@ -38,6 +37,9 @@ const fetchSatQuestions = async (subject, count = '1', difficulty, type) => {
     }
     if (difficulty) {
         query = query.where('difficulty', '==', difficulty.toLowerCase());
+    }
+    if (passageId) { // NEW: Filter by passageId
+        query = query.where('passageId', '==', passageId);
     }
 
     const limitCount = parseInt(count);

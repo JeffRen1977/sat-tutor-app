@@ -1,6 +1,4 @@
-// =====================================================================
-// --- File: backend/routes/authRoutes.js ---
-// =====================================================================
+// backend/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
 const { registerUser, loginUser } = require('../services/authService'); // Import auth service functions

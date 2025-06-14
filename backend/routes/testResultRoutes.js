@@ -1,6 +1,4 @@
-// =====================================================================
-// --- File: backend/routes/testResultRoutes.js ---
-// =====================================================================
+// backend/routes/testResultRoutes.js
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');

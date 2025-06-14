@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, BookOpen, FileText, TrendingUp, MessageSquare, Settings, Menu, X, Sparkles, LogOut, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { Home, BookOpen, FileText, TrendingUp, MessageSquare, Settings, Menu, X, Sparkles, LogOut, CheckCircle, XCircle, ArrowLeft, PlusCircle } from 'lucide-react'; // PlusCircle for AdminTools icon
 
 // Define the base URL for your backend API
 const API_BASE_URL = 'http://localhost:3001/api';
@@ -105,7 +105,7 @@ function LoginPage({ onLoginSuccess, onNavigateToRegister, API_BASE_URL }) {
             const data = await response.json();
 
             if (response.ok) {
-                onLoginSuccess(data.token, data.email);
+                onLoginSuccess(data.token, data.email, data.role); // Pass role from backend
             } else {
                 setError(data.message || 'Login failed. Please try again.');
             }
@@ -344,7 +344,7 @@ function Dashboard({ userEmail }) {
     );
 }
 
-function StudyModules({ API_BASE_URL, userToken }) {
+function StudyModules({ API_BASE_URL, userToken, userRole }) { // Added userRole prop
     const [vocabularyWord, setVocabularyWord] = useState('');
     const [vocabularyExplanation, setVocabularyExplanation] = useState('');
     const [isLoadingVocab, setIsLoadingVocab] = useState(false);
@@ -357,7 +357,7 @@ function StudyModules({ API_BASE_URL, userToken }) {
 
     const [mathProblem, setMathProblem] = useState('');
     const [mathSolution, setMathSolution] = useState('');
-    const [isLoadingMath, setIsLoadingMath] = useState(false); // Fixed: ensure this is assignment, not arrow function
+    const [isLoadingMath, setIsLoadingMath] = useState(false);
     const [mathError, setMathError] = useState('');
 
     const [questionSubject, setQuestionSubject] = useState('math');
@@ -367,14 +367,21 @@ function StudyModules({ API_BASE_URL, userToken }) {
     const [fetchedQuestions, setFetchedQuestions] = useState([]);
     const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
     const [questionFetchError, setQuestionFetchError] = useState('');
+    const [fetchedPassage, setFetchedPassage] = useState(null);
+    const [isLoadingPassage, setIsLoadingPassage] = useState(false);
+    const [passageFetchError, setPassageFetchError] = useState('');
 
     const [userAnswers, setUserAnswers] = useState({});
     const [resultMessages, setResultMessages] = useState({});
 
-    const [activeStudyView, setActiveStudyView] = useState('main');
+    const [activeStudyView, setActiveStudyView] = useState('main'); // 'main', 'math-main', 'reading-main', 'writing-main'
 
 
     const fetchSatQuestions = async () => {
+        if (!userToken) { // Ensure user is authenticated before fetching questions
+            setQuestionFetchError('Authentication required. Please log in to fetch questions.');
+            return;
+        }
         if (!questionSubject) {
             setQuestionFetchError('Please select a subject to fetch questions.');
             return;
@@ -384,6 +391,8 @@ function StudyModules({ API_BASE_URL, userToken }) {
         setFetchedQuestions([]);
         setUserAnswers({});
         setResultMessages({});
+        setFetchedPassage(null);
+        setPassageFetchError('');
 
         try {
             let url = `${API_BASE_URL}/questions/fetch?subject=${questionSubject}&count=${questionCount}`;
@@ -411,6 +420,11 @@ function StudyModules({ API_BASE_URL, userToken }) {
             const data = await response.json();
             setFetchedQuestions(data.questions);
 
+            if (questionSubject === 'reading' && data.questions.length > 0 && data.questions[0].passageId) {
+                const firstPassageId = data.questions[0].passageId;
+                await fetchPassageById(firstPassageId);
+            }
+
         } catch (error) {
             console.error("Error fetching questions:", error);
             setQuestionFetchError(`Error fetching questions: ${error.message}`);
@@ -419,11 +433,52 @@ function StudyModules({ API_BASE_URL, userToken }) {
         }
     };
 
+    const fetchPassageById = async (passageId) => {
+        setIsLoadingPassage(true);
+        setPassageFetchError('');
+        try {
+            const response = await fetch(`${API_BASE_URL}/passages/fetch?passageId=${passageId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                },
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                setPassageFetchError('Authentication required. Please log in to view passage.');
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to fetch passage.');
+            }
+
+            const data = await response.json();
+            if (data.passages && data.passages.length > 0) {
+                setFetchedPassage(data.passages[0]);
+            } else {
+                setPassageFetchError('Passage not found for the given ID.');
+            }
+        } catch (error) {
+            console.error("Error fetching passage:", error);
+            setPassageFetchError(`Error fetching passage: ${error.message}`);
+        } finally {
+            setIsLoadingPassage(false);
+        }
+    };
+
+
     const handleAnswerChange = (questionId, answer) => {
         setUserAnswers(prev => ({ ...prev, [questionId]: answer }));
     };
 
     const saveTestResult = async (question) => {
+        if (!userToken) { // Ensure user is authenticated before saving
+            setResultMessages(prev => ({ ...prev, [question.id]: { type: 'error', message: 'Authentication required. Please log in to save result.' } }));
+            return;
+        }
         const userAnswer = userAnswers[question.id] || '';
         if (!userAnswer.trim()) {
             setResultMessages(prev => ({ ...prev, [question.id]: { type: 'error', message: 'Please provide an answer first.' } }));
@@ -475,6 +530,10 @@ function StudyModules({ API_BASE_URL, userToken }) {
 
 
     const getVocabularyExplanation = async () => {
+        if (!userToken) {
+            setVocabError('Authentication required. Please log in.');
+            return;
+        }
         if (!vocabularyWord.trim()) {
             setVocabError('Please enter a word to get an explanation.');
             return;
@@ -515,6 +574,10 @@ function StudyModules({ API_BASE_URL, userToken }) {
     };
 
     const getEssayBrainstorming = async () => {
+        if (!userToken) {
+            setEssayError('Authentication required. Please log in.');
+            return;
+        }
         if (!essayTopic.trim()) {
             setEssayError('Please enter an essay topic to brainstorm.');
             return;
@@ -555,6 +618,10 @@ function StudyModules({ API_BASE_URL, userToken }) {
     };
 
     const solveMathProblem = async () => {
+        if (!userToken) {
+            setMathError('Authentication required. Please log in.');
+            return;
+        }
         if (!mathProblem.trim()) {
             setMathError('Please enter a math problem to solve.');
             return;
@@ -652,6 +719,18 @@ function StudyModules({ API_BASE_URL, userToken }) {
                                 {isLoadingQuestions ? <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Fetch Reading Questions ✨'}
                             </button>
                             {questionFetchError && <p className="text-red-600 text-sm mt-2">{questionFetchError}</p>}
+
+                            {/* Display Fetched Passage */}
+                            {isLoadingPassage && <p className="text-gray-600 text-center mt-4">Loading passage...</p>}
+                            {passageFetchError && <p className="text-red-600 text-sm mt-2 text-center">{passageFetchError}</p>}
+                            {fetchedPassage && (
+                                <div className="mt-6 p-4 bg-gray-50 rounded-lg shadow-inner border border-gray-200">
+                                    <h5 className="text-lg font-semibold text-gray-800 mb-2">{fetchedPassage.title}</h5>
+                                    <p className="text-gray-700 whitespace-pre-wrap">{fetchedPassage.text}</p>
+                                    <p className="text-gray-500 text-sm mt-2">Genre: {fetchedPassage.genre}, Word Count: {fetchedPassage.wordCount}</p>
+                                </div>
+                            )}
+
                             {fetchedQuestions.length > 0 && renderFetchedQuestions()}
                         </div>
                     </div>
@@ -687,10 +766,7 @@ function StudyModules({ API_BASE_URL, userToken }) {
                                     className="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isLoadingEssay ? (
-                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
+                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     ) : (
                                         <>
                                             Brainstorm Essay ✨
@@ -1176,6 +1252,319 @@ function SettingsPage() {
     );
 }
 
+// --- AdminTools Component (NEW PAGE) ---
+function AdminTools({ API_BASE_URL, userToken, userRole }) {
+    // State for Generate Passage
+    const [generatePassageGenre, setGeneratePassageGenre] = useState('history');
+    const [generatePassageWordCount, setGeneratePassageWordCount] = useState(300);
+    const [generatePassageTopic, setGeneratePassageTopic] = useState('');
+    const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
+    const [generatePassageMessage, setGeneratePassageMessage] = useState({ type: '', text: '' });
+    const [lastGeneratedPassageId, setLastGeneratedPassageId] = useState(null);
+
+    // State for Generate Questions
+    const [generateQuestionSubject, setGenerateQuestionSubject] = useState('math');
+    const [generateQuestionCount, setGenerateQuestionCount] = useState(1);
+    const [generateQuestionDifficulty, setGenerateQuestionDifficulty] = useState('medium');
+    const [generateQuestionType, setGenerateQuestionType] = useState('');
+    const [generateQuestionPassageId, setGenerateQuestionPassageId] = useState('');
+    const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+    const [generateQuestionMessage, setGenerateQuestionMessage] = useState({ type: '', text: '' });
+
+    const handleGeneratePassage = async () => {
+        setGeneratePassageMessage({ type: '', text: '' });
+        setIsGeneratingPassage(true);
+        setLastGeneratedPassageId(null);
+
+        if (!generatePassageGenre || !generatePassageWordCount) {
+            setGeneratePassageMessage({ type: 'error', text: 'Genre and Word Count are required.' });
+            setIsGeneratingPassage(false);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/passages/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                },
+                body: JSON.stringify({
+                    genre: generatePassageGenre,
+                    wordCount: generatePassageWordCount,
+                    topic: generatePassageTopic
+                })
+            });
+
+            if (response.status === 403) {
+                setGeneratePassageMessage({ type: 'error', text: 'Forbidden: Only admins can generate passages.' });
+                return;
+            }
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to generate passage.');
+            }
+
+            const data = await response.json();
+            setGeneratePassageMessage({ type: 'success', text: `Passage generated and saved! ID: ${data.passageId}` });
+            setLastGeneratedPassageId(data.passageId);
+        } catch (error) {
+            console.error("Error generating passage:", error);
+            setGeneratePassageMessage({ type: 'error', text: `Error generating passage: ${error.message}` });
+        } finally {
+            setIsGeneratingPassage(false);
+        }
+    };
+
+    const handleGenerateQuestions = async () => {
+        setGenerateQuestionMessage({ type: '', text: '' });
+        setIsGeneratingQuestions(true);
+
+        if (!generateQuestionSubject || !generateQuestionCount || !generateQuestionDifficulty) {
+            setGenerateQuestionMessage({ type: 'error', text: 'Subject, Count, and Difficulty are required.' });
+            setIsGeneratingQuestions(false);
+            return;
+        }
+        if (generateQuestionSubject === 'reading' && !generateQuestionPassageId) {
+            setGenerateQuestionMessage({ type: 'error', text: 'For reading questions, a Passage ID is required.' });
+            setIsGeneratingQuestions(false);
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/questions/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                },
+                body: JSON.stringify({
+                    subject: generateQuestionSubject,
+                    count: generateQuestionCount,
+                    difficulty: generateQuestionDifficulty,
+                    type: generateQuestionType,
+                    passageId: generateQuestionSubject === 'reading' ? (generateQuestionPassageId || null) : null
+                })
+            });
+
+            if (response.status === 403) {
+                setGenerateQuestionMessage({ type: 'error', text: 'Forbidden: Only admins can generate questions.' });
+                return;
+            }
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to generate questions.');
+            }
+
+            const data = await response.json();
+            setGenerateQuestionMessage({ type: 'success', text: `Generated and saved ${data.successful} questions!` });
+        } catch (error) {
+            console.error("Error generating questions:", error);
+            setGenerateQuestionMessage({ type: 'error', text: `Error generating questions: ${error.message}` });
+        } finally {
+            setIsGeneratingQuestions(false);
+        }
+    };
+
+    if (userRole !== 'admin') {
+        return (
+            <div className="p-6 bg-red-100 rounded-lg shadow-md text-center">
+                <h2 className="text-3xl font-bold text-red-800 mb-4">Access Denied</h2>
+                <p className="text-red-700">You must be logged in as an administrator to access these tools.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
+                <PlusCircle className="w-8 h-8 mr-3" /> Admin Content Generation Tools
+            </h2>
+            <p className="text-gray-600 mb-8">Generate and add new SAT passages or questions to the database using AI.</p>
+
+            {/* Generate Passage Form */}
+            <div className="mt-6 p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-200">
+                <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Passage</h3>
+                <p className="text-purple-700 mb-6">Create a new SAT-style reading passage via AI.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label htmlFor="genPassageGenre" className="block text-sm font-medium text-gray-700 mb-2">Genre:</label>
+                        <select
+                            id="genPassageGenre"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generatePassageGenre}
+                            onChange={(e) => setGeneratePassageGenre(e.target.value)}
+                            disabled={isGeneratingPassage}
+                        >
+                            <option value="history">History</option>
+                            <option value="literary_narrative">Literary Narrative</option>
+                            <option value="natural_science">Natural Science</option>
+                            <option value="social_science">Social Science</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="genPassageWordCount" className="block text-sm font-medium text-gray-700 mb-2">Word Count (approx):</label>
+                        <input
+                            type="number"
+                            id="genPassageWordCount"
+                            min="100"
+                            max="1000"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generatePassageWordCount}
+                            onChange={(e) => setGeneratePassageWordCount(Math.max(100, Math.min(1000, parseInt(e.target.value) || 100)))}
+                            disabled={isGeneratingPassage}
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="genPassageTopic" className="block text-sm font-medium text-gray-700 mb-2">Topic (Optional):</label>
+                    <input
+                        type="text"
+                        id="genPassageTopic"
+                        placeholder="e.g., impact of renewable energy"
+                        className="w-full p-2 border border-gray-300 rounded-md"
+                        value={generatePassageTopic}
+                        onChange={(e) => setGeneratePassageTopic(e.target.value)}
+                        disabled={isGeneratingPassage}
+                    />
+                </div>
+                <button
+                    onClick={handleGeneratePassage}
+                    disabled={isGeneratingPassage}
+                    className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full"
+                >
+                    {isGeneratingPassage ? (
+                        <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    ) : (
+                        <>Generate & Save Passage ✨</>
+                    )}
+                </button>
+                {generatePassageMessage.text && (
+                    <p className={`text-sm mt-2 text-center ${generatePassageMessage.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+                        {generatePassageMessage.text}
+                    </p>
+                )}
+                {lastGeneratedPassageId && generatePassageMessage.type === 'success' && (
+                    <p className="text-gray-700 text-sm mt-2 text-center">
+                        Last generated passage ID: <span className="font-semibold">{lastGeneratedPassageId}</span> (Copy for questions)
+                    </p>
+                )}
+            </div>
+
+            {/* Generate Questions Form */}
+            <div className="mt-10 p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-200">
+                <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Questions</h3>
+                <p className="text-purple-700 mb-6">Create new SAT-style questions via AI and save them to the database.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label htmlFor="genQuestionSubject" className="block text-sm font-medium text-gray-700 mb-2">Subject:</label>
+                        <select
+                            id="genQuestionSubject"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generateQuestionSubject}
+                            onChange={(e) => {
+                                setGenerateQuestionSubject(e.target.value);
+                                // Clear passage ID if subject changes from reading
+                                if (e.target.value !== 'reading') {
+                                    setGenerateQuestionPassageId('');
+                                }
+                            }}
+                            disabled={isGeneratingQuestions}
+                        >
+                            <option value="math">Math</option>
+                            <option value="reading">Reading</option>
+                            <option value="writing">Writing & Language</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="genQuestionCount" className="block text-sm font-medium text-gray-700 mb-2">Count (max 5):</label>
+                        <input
+                            type="number"
+                            id="genQuestionCount"
+                            min="1"
+                            max="5"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generateQuestionCount}
+                            onChange={(e) => setGenerateQuestionCount(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
+                            disabled={isGeneratingQuestions}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="genQuestionDifficulty" className="block text-sm font-medium text-gray-700 mb-2">Difficulty:</label>
+                        <select
+                            id="genQuestionDifficulty"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generateQuestionDifficulty}
+                            onChange={(e) => setGenerateQuestionDifficulty(e.target.value)}
+                            disabled={isGeneratingQuestions}
+                        >
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="genQuestionType" className="block text-sm font-medium text-gray-700 mb-2">Type (Optional):</label>
+                        <input
+                            type="text"
+                            id="genQuestionType"
+                            placeholder="e.g., algebra, grammar, main_idea"
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generateQuestionType}
+                            onChange={(e) => setGenerateQuestionType(e.target.value)}
+                            disabled={isGeneratingQuestions}
+                        />
+                    </div>
+                </div>
+                {generateQuestionSubject === 'reading' && (
+                    <div className="mb-4">
+                        <label htmlFor="genQuestionPassageId" className="block text-sm font-medium text-gray-700 mb-2">Passage ID (Required for Reading Questions):</label>
+                        <input
+                            type="text"
+                            id="genQuestionPassageId"
+                            placeholder={lastGeneratedPassageId ? `Last generated: ${lastGeneratedPassageId}` : "Paste passage ID here or leave blank for AI to generate general questions"}
+                            className="w-full p-2 border border-gray-300 rounded-md"
+                            value={generateQuestionPassageId}
+                            onChange={(e) => setGenerateQuestionPassageId(e.target.value)}
+                            disabled={isGeneratingQuestions}
+                        />
+                        {lastGeneratedPassageId && (
+                            <button
+                                type="button"
+                                onClick={() => setGenerateQuestionPassageId(lastGeneratedPassageId)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800 mt-1 focus:outline-none"
+                            >
+                                Use Last Generated Passage ID
+                            </button>
+                        )}
+                        {!lastGeneratedPassageId && generateQuestionSubject === 'reading' && generateQuestionPassageId === '' && (
+                            <p className="text-sm text-red-600 mt-1">
+                                For reading questions, it is recommended to provide a passage ID.
+                            </p>
+                        )}
+                    </div>
+                )}
+                <button
+                    onClick={handleGenerateQuestions}
+                    disabled={isGeneratingQuestions}
+                    className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full"
+                >
+                    {isGeneratingQuestions ? (
+                        <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    ) : (
+                        <>Generate & Save Questions ✨</>
+                    )}
+                </button>
+                {generateQuestionMessage.text && (
+                    <p className={`text-sm mt-2 text-center ${generateQuestionMessage.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+                        {generateQuestionMessage.text}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // --- Main App Component ---
 export default function App() {
     const [currentPage, setCurrentPage] = useState('login');
@@ -1183,31 +1572,38 @@ export default function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [userEmail, setUserEmail] = useState(null);
     const [userToken, setUserToken] = useState(localStorage.getItem('satTutorToken') || null);
+    const [userRole, setUserRole] = useState('guest'); // Store user role
 
     useEffect(() => {
         if (userToken) {
-            setIsAuthenticated(true);
             try {
                 const base64Url = userToken.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 const decodedToken = JSON.parse(window.atob(base64));
                 setUserEmail(decodedToken.email || "Authenticated User");
+                setUserRole(decodedToken.role || 'student'); // Set user role from token
+                setIsAuthenticated(true);
+                setCurrentPage('dashboard');
             } catch (e) {
                 console.error("Error decoding token:", e);
                 setUserEmail("Authenticated User");
+                setUserRole('guest'); // Fallback to guest
+                setIsAuthenticated(false);
+                setCurrentPage('login');
             }
-            setCurrentPage('dashboard');
         } else {
             setIsAuthenticated(false);
             setUserEmail(null);
+            setUserRole('guest');
             setCurrentPage('login');
         }
     }, [userToken]);
 
-    const handleLogin = (token, email) => {
+    const handleLogin = (token, email, role) => { // Added role parameter
         localStorage.setItem('satTutorToken', token);
         setUserToken(token);
         setUserEmail(email);
+        setUserRole(role); // Set role directly from login response
     };
 
     const handleLogout = () => {
@@ -1215,6 +1611,7 @@ export default function App() {
         setUserToken(null);
         setIsAuthenticated(false);
         setUserEmail(null);
+        setUserRole('guest');
     };
 
     const navigateToRegister = () => {
@@ -1237,7 +1634,7 @@ export default function App() {
             case 'dashboard':
                 return <Dashboard userEmail={userEmail} />;
             case 'study':
-                return <StudyModules API_BASE_URL={API_BASE_URL} userToken={userToken} />;
+                return <StudyModules API_BASE_URL={API_BASE_URL} userToken={userToken} userRole={userRole} />; // Pass userRole
             case 'practice':
                 return <PracticeTests />;
             case 'progress':
@@ -1246,6 +1643,8 @@ export default function App() {
                 return <AIChat API_BASE_URL={API_BASE_URL} userToken={userToken} />;
             case 'settings':
                 return <SettingsPage />;
+            case 'admin-tools': // NEW: AdminTools route
+                return <AdminTools API_BASE_URL={API_BASE_URL} userToken={userToken} userRole={userRole} />; // Pass userRole
             default:
                 return <Dashboard userEmail={userEmail} />;
         }
@@ -1267,6 +1666,9 @@ export default function App() {
                             <NavItem icon={<TrendingUp />} text="Progress Tracking" page="progress" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                             <NavItem icon={<MessageSquare />} text="AI Tutoring Chat" page="ai-chat" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                             <NavItem icon={<Settings />} text="Settings" page="settings" setCurrentPage={setCurrentPage} currentPage={currentPage} />
+                            {userRole === 'admin' && ( // Conditionally render Admin Tools nav item
+                                <NavItem icon={<PlusCircle />} text="Admin Tools" page="admin-tools" setCurrentPage={setCurrentPage} currentPage={currentPage} />
+                            )}
                         </nav>
                     </aside>
 
@@ -1294,6 +1696,9 @@ export default function App() {
                             <NavItem icon={<TrendingUp />} text="Progress Tracking" page="progress" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
                             <NavItem icon={<MessageSquare />} text="AI Tutoring Chat" page="ai-chat" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
                             <NavItem icon={<Settings />} text="Settings" page="settings" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
+                            {userRole === 'admin' && ( // Conditionally render Admin Tools nav item
+                                <NavItem icon={<PlusCircle />} text="Admin Tools" page="admin-tools" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
+                            )}
                         </nav>
                     </div >
                 </>
