@@ -5,7 +5,6 @@ import { Home, BookOpen, FileText, TrendingUp, MessageSquare, Settings, Menu, X,
 const API_BASE_URL = 'http://localhost:3001/api';
 
 // --- Shared Components (Function Declarations - No internal exports) ---
-// These components are designed to be used only within this App.js scope
 function NavItem({ icon, text, page, setCurrentPage, currentPage, onClick }) {
     return (
         <button
@@ -49,12 +48,14 @@ function StudyCard({ title, description, onClick }) {
     );
 }
 
-function TestCard({ title, description }) {
+function TestCard({ title, description, onStart }) {
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
             <h3 className="text-xl font-semibold text-gray-800 mb-3">{title}</h3>
             <p className="text-gray-600 mb-4">{description}</p>
-            <button className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200 shadow-md">
+            <button 
+                onClick={onStart}
+                className="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200 shadow-md">
                 Start Test
             </button>
         </div>
@@ -81,7 +82,7 @@ function ProgressChart({ title }) {
     );
 }
 
-// --- Auth Components (Function Declarations - No internal exports) ---
+// --- Auth Components ---
 function LoginPage({ onLoginSuccess, onNavigateToRegister, API_BASE_URL }) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -92,26 +93,20 @@ function LoginPage({ onLoginSuccess, onNavigateToRegister, API_BASE_URL }) {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-
         try {
             const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });
-
             const data = await response.json();
-
             if (response.ok) {
-                onLoginSuccess(data.token, data.email, data.role); // Pass role from backend
+                onLoginSuccess(data.token, data.email, data.role);
             } else {
-                setError(data.message || 'Login failed. Please try again.');
+                setError(data.message || 'Login failed.');
             }
         } catch (err) {
-            console.error('Login request failed:', err);
-            setError('Network error. Please try again later.');
+            setError('Network error.');
         } finally {
             setIsLoading(false);
         }
@@ -120,65 +115,22 @@ function LoginPage({ onLoginSuccess, onNavigateToRegister, API_BASE_URL }) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
             <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Login to SAT Tutor</h2>
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Login</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            id="email"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                            placeholder="your.email@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
                     </div>
                     <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                            Password
-                        </label>
-                        <input
-                            type="password"
-                            id="password"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
                     </div>
-                    {error && (
-                        <p className="text-red-600 text-sm text-center">{error}</p>
-                    )}
-                    <button
-                        type="submit"
-                        className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            'Login'
-                        )}
+                    {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                        {isLoading ? 'Logging in...' : 'Login'}
                     </button>
                 </form>
-                <p className="mt-6 text-center text-gray-600">
-                    Don't have an account?{' '}
-                    <button
-                        onClick={onNavigateToRegister}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
-                    >
-                        Register here
-                    </button>
-                </p>
+                <p className="mt-6 text-center">Don't have an account? <button onClick={onNavigateToRegister} className="text-indigo-600 hover:text-indigo-800">Register here</button></p>
             </div>
         </div>
     );
@@ -194,39 +146,27 @@ function RegisterPage({ onRegisterSuccess, API_BASE_URL }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccessMessage('');
-        setIsLoading(true);
-
         if (password !== confirmPassword) {
-            setError('Passwords do not match.');
-            setIsLoading(false);
+            setError("Passwords do not match.");
             return;
         }
-
+        setError('');
+        setIsLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });
-
             const data = await response.json();
-
             if (response.ok) {
-                setSuccessMessage(data.message || 'Registration successful! You can now log in.');
-                setEmail('');
-                setPassword('');
-                setConfirmPassword('');
+                setSuccessMessage('Registration successful! Redirecting to login...');
                 setTimeout(onRegisterSuccess, 2000);
             } else {
-                setError(data.message || 'Registration failed. Please try again.');
+                setError(data.message || 'Registration failed.');
             }
         } catch (err) {
-            console.error('Registration request failed:', err);
-            setError('Network error. Please try again later.');
+            setError('Network error.');
         } finally {
             setIsLoading(false);
         }
@@ -235,102 +175,43 @@ function RegisterPage({ onRegisterSuccess, API_BASE_URL }) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
             <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Register for SAT Tutor</h2>
+                <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Register</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Email Address
-                        </label>
-                        <input
-                            type="email"
-                            id="email"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                            placeholder="your.email@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
                     </div>
                     <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                            Password
-                        </label>
-                        <input
-                            type="password"
-                            id="password"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
                     </div>
                     <div>
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                            Confirm Password
-                        </label>
-                        <input
-                            type="password"
-                            id="confirmPassword"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                            placeholder="••••••••"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                        <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500"/>
                     </div>
-                    {error && (
-                        <p className="text-red-600 text-sm text-center">{error}</p>
-                    )}
-                    {successMessage && (
-                        <p className="text-green-600 text-sm text-center">{successMessage}</p>
-                    )}
-                    <button
-                        type="submit"
-                        className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isLoading}
-                    >
-                        {isLoading ? (
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            'Register'
-                        )}
+                    {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+                    {successMessage && <p className="text-green-600 text-sm text-center">{successMessage}</p>}
+                    <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50">
+                        {isLoading ? 'Registering...' : 'Register'}
                     </button>
                 </form>
-                <p className="mt-6 text-center text-gray-600">
-                    Already have an account?{' '}
-                    <button
-                        onClick={onRegisterSuccess}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
-                        disabled={isLoading}
-                    >
-                        Login here
-                    </button>
-                </p>
+                <p className="mt-6 text-center">Already have an account? <button onClick={onRegisterSuccess} className="text-indigo-600 hover:text-indigo-800">Login here</button></p>
             </div>
         </div>
     );
 }
 
-// --- Page Components (Function Declarations - No internal exports) ---
+// --- Page Components ---
 function Dashboard({ userEmail }) {
     return (
         <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-3xl font-bold text-gray-800 mb-6">Welcome back, {userEmail || 'Student'}!</h2>
             <p className="text-gray-600 mb-8">This is your study dashboard. Here you can see an overview of your progress.</p>
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <Card title="Latest Scores" description="Last Practice Test: Math 680, Reading 650" />
                 <Card title="Today's Tasks" description="Complete 20 grammar practice questions" />
                 <Card title="Vocabulary Review" description="15 words to review today" />
             </div>
-
             <div className="mt-8">
                 <h3 className="text-2xl font-semibold text-gray-800 mb-4">Quick Links</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -430,18 +311,19 @@ function StudyModules({ API_BASE_URL, userToken }) {
     };
     
     const savePracticeAttempt = async (question) => {
+        const questionId = question.id || question.questionText; // Use text as a fallback key
         if (!userToken) {
-            setResultMessages(prev => ({ ...prev, [question.id]: { type: 'error', message: 'Authentication required.' } }));
+            setResultMessages(prev => ({ ...prev, [questionId]: { type: 'error', message: 'Authentication required.' } }));
             return;
         }
-        const userAnswer = userAnswers[question.id] || '';
+        const userAnswer = userAnswers[questionId] || '';
         if (!userAnswer.trim()) {
-            setResultMessages(prev => ({ ...prev, [question.id]: { type: 'error', message: 'Please provide an answer.' } }));
+            setResultMessages(prev => ({ ...prev, [questionId]: { type: 'error', message: 'Please provide an answer.' } }));
             return;
         }
 
         const isCorrect = userAnswer.toLowerCase().trim() === question.correctAnswer.toLowerCase().trim();
-        setResultMessages(prev => ({ ...prev, [question.id]: { type: 'loading', message: 'Saving...' } }));
+        setResultMessages(prev => ({ ...prev, [questionId]: { type: 'loading', message: 'Saving...' } }));
 
         try {
             const response = await fetch(`${API_BASE_URL}/practice-history/save`, {
@@ -462,14 +344,14 @@ function StudyModules({ API_BASE_URL, userToken }) {
             
             setResultMessages(prev => ({
                 ...prev,
-                [question.id]: {
+                [questionId]: {
                     type: 'success',
                     message: isCorrect ? 'Correct! Answer saved.' : `Incorrect. Correct: ${question.correctAnswer}`
                 }
             }));
         } catch (error) {
             console.error("Error saving practice attempt:", error);
-            setResultMessages(prev => ({ ...prev, [question.id]: { type: 'error', message: `Error: ${error.message}` } }));
+            setResultMessages(prev => ({ ...prev, [questionId]: { type: 'error', message: `Error: ${error.message}` } }));
         }
     };
 
@@ -585,58 +467,61 @@ function StudyModules({ API_BASE_URL, userToken }) {
     const renderFetchedQuestions = () => (
         <div className="mt-8 space-y-8">
             <h3 className="text-2xl font-semibold text-gray-800">Questions</h3>
-            {fetchedQuestions.map((q, index) => (
-                <div key={q.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <p className="text-gray-800 font-medium mb-3">
-                        {index + 1}. {q.questionText}
-                    </p>
-                    {q.isMultipleChoice && q.options && q.options.length > 0 ? (
-                        <div className="space-y-2 mb-4">
-                            {q.options.map((option, optIndex) => (
-                                <label key={optIndex} className="block text-gray-700 p-2 rounded-md hover:bg-gray-100 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name={`question-${q.id}`}
-                                        value={String.fromCharCode(65 + optIndex)}
-                                        checked={userAnswers[q.id] === String.fromCharCode(65 + optIndex)}
-                                        onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                                        className="mr-3"
-                                    />
-                                    {String.fromCharCode(65 + optIndex)}. {option}
-                                </label>
-                            ))}
+            {fetchedQuestions.map((q, index) => {
+                const questionId = q.id || q.questionText; // Fallback key
+                return (
+                    <div key={questionId} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                        <p className="text-gray-800 font-medium mb-3">
+                            {index + 1}. {q.questionText}
+                        </p>
+                        {q.isMultipleChoice && q.options && q.options.length > 0 ? (
+                            <div className="space-y-2 mb-4">
+                                {q.options.map((option, optIndex) => (
+                                    <label key={optIndex} className="block text-gray-700 p-2 rounded-md hover:bg-gray-100 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name={`question-${questionId}`}
+                                            value={String.fromCharCode(65 + optIndex)}
+                                            checked={userAnswers[questionId] === String.fromCharCode(65 + optIndex)}
+                                            onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                                            className="mr-3"
+                                        />
+                                        {String.fromCharCode(65 + optIndex)}. {option}
+                                    </label>
+                                ))}
+                            </div>
+                        ) : (
+                            <input
+                                type="text"
+                                placeholder="Your answer (e.g., 5, or 'x=2')"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                value={userAnswers[questionId] || ''}
+                                onChange={(e) => handleAnswerChange(questionId, e.target.value)}
+                            />
+                        )}
+                        <div className="mt-4 flex items-center space-x-2">
+                            <button
+                                onClick={() => savePracticeAttempt(q)}
+                                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm shadow-md flex items-center disabled:opacity-50"
+                                disabled={!!resultMessages[questionId]}
+                            >
+                                {resultMessages[questionId]?.type === 'loading' ? 'Saving...' : 'Save Answer'}
+                            </button>
+                            {resultMessages[questionId] && (
+                                <span className={`text-sm flex items-center ${resultMessages[questionId].type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
+                                    {resultMessages[questionId].type === 'success' ? <CheckCircle className="w-4 h-4 mr-1" /> : <XCircle className="w-4 h-4 mr-1" />}
+                                    {resultMessages[questionId].message}
+                                </span>
+                            )}
                         </div>
-                    ) : (
-                        <input
-                            type="text"
-                            placeholder="Your answer (e.g., 5, or 'x=2')"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            value={userAnswers[q.id] || ''}
-                            onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                        />
-                    )}
-                    <div className="mt-4 flex items-center space-x-2">
-                        <button
-                            onClick={() => savePracticeAttempt(q)}
-                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm shadow-md flex items-center disabled:opacity-50"
-                            disabled={!!resultMessages[q.id]}
-                        >
-                            {resultMessages[q.id]?.type === 'loading' ? 'Saving...' : 'Save Answer'}
-                        </button>
-                        {resultMessages[q.id] && (
-                            <span className={`text-sm flex items-center ${resultMessages[q.id].type === 'success' ? 'text-green-700' : 'text-red-700'}`}>
-                                {resultMessages[q.id].type === 'success' ? <CheckCircle className="w-4 h-4 mr-1" /> : <XCircle className="w-4 h-4 mr-1" />}
-                                {resultMessages[q.id].message}
-                            </span>
+                         {resultMessages[questionId]?.type === 'success' && !resultMessages[questionId].message.includes('Correct!') && q.explanation && (
+                            <div className="mt-3 p-3 bg-gray-100 rounded-md text-sm text-gray-700">
+                                <strong>Explanation:</strong> {q.explanation}
+                            </div>
                         )}
                     </div>
-                     {resultMessages[q.id]?.type === 'success' && !resultMessages[q.id].message.includes('Correct!') && q.explanation && (
-                        <div className="mt-3 p-3 bg-gray-100 rounded-md text-sm text-gray-700">
-                            <strong>Explanation:</strong> {q.explanation}
-                        </div>
-                    )}
-                </div>
-            ))}
+                )
+            })}
         </div>
     );
 
@@ -649,17 +534,205 @@ function StudyModules({ API_BASE_URL, userToken }) {
     );
 }
 
-function PracticeTests() {
+function PracticeTests({ API_BASE_URL, userToken }) {
+    const [currentTest, setCurrentTest] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const startTest = async (testType) => {
+        setIsLoading(true);
+        setError('');
+        setCurrentTest(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/tests/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                },
+                body: JSON.stringify({ type: testType }),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || `Failed to generate ${testType} test.`);
+            }
+            setCurrentTest(data);
+        } catch (err) {
+            console.error(`Error generating ${testType} test:`, err);
+            setError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-full">
+                <div className="text-center">
+                    <svg className="animate-spin h-10 w-10 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="mt-4 text-gray-600">Generating your test... Please wait.</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+         return (
+             <div className="p-6 text-center">
+                <p className="text-red-500 mb-4">{error}</p>
+                <button onClick={() => setError('')} className="bg-indigo-500 text-white px-4 py-2 rounded-lg">
+                    Back to Tests
+                </button>
+             </div>
+        );
+    }
+    
+    if (currentTest) {
+        return <TestTakingScreen testData={currentTest} onFinish={() => setCurrentTest(null)} />;
+    }
+
     return (
         <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-3xl font-bold text-gray-800 mb-6">Practice Tests</h2>
             <p className="text-gray-600 mb-8">Take full-length simulated tests or section-wise quizzes to assess your knowledge.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <TestCard title="Full-Length Practice Test 1" description="Simulate the real SAT exam experience, covering all subjects." />
-                <TestCard title="Math Section Test" description="Focus on practicing and improving your math skills." />
-                <TestCard title="Reading Section Test" description="Practice reading comprehension and passage analysis specifically." />
-                <TestCard title="Writing and Language Section Test" description="Improve your grammar and writing skills." />
+                <TestCard title="Full-Length Practice Test" description="Simulate the real SAT exam experience, covering all sections." onStart={() => startTest('full')} />
+                <TestCard title="Math Section Test" description="Focus on practicing and improving your math skills." onStart={() => startTest('math')} />
+                <TestCard title="Reading Section Test" description="Practice reading comprehension and passage analysis." onStart={() => startTest('reading')} />
             </div>
+        </div>
+    );
+}
+
+function TestTakingScreen({ testData, onFinish }) {
+    const [userAnswers, setUserAnswers] = useState({});
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [score, setScore] = useState({ correct: 0, total: 0 });
+
+    const allQuestions = [
+        ...(testData.readingSection?.flatMap((p, pIndex) => p.questions.map((q, qIndex) => ({...q, id: `reading_${pIndex}_${qIndex}`, passageTitle: p.title, passageText: p.text}))) || []),
+        ...(testData.writingSection?.map((q, i) => ({...q, id: `writing_${i}`})) || []),
+        ...(testData.mathSection?.map((q, i) => ({...q, id: `math_${i}`})) || [])
+    ];
+    
+    const handleAnswerChange = (questionId, answer) => {
+        setUserAnswers(prev => ({...prev, [questionId]: answer}));
+    };
+    
+    const handleSubmit = () => {
+        let correctCount = 0;
+        allQuestions.forEach((q) => {
+            const userAnswer = userAnswers[q.id];
+            if (userAnswer && userAnswer.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()) {
+                correctCount++;
+            }
+        });
+        setScore({ correct: correctCount, total: allQuestions.length });
+        setIsSubmitted(true);
+        window.scrollTo(0, 0);
+    };
+    
+    if(isSubmitted) {
+        return (
+             <div className="p-6 bg-white rounded-lg shadow-md">
+                <h2 className="text-3xl font-bold text-indigo-700 mb-4">Test Results</h2>
+                <div className="text-center p-8 bg-indigo-50 rounded-lg">
+                    <p className="text-xl text-gray-700">You scored</p>
+                    <p className="text-6xl font-bold text-indigo-600 my-2">{score.correct} / {score.total}</p>
+                    <p className="text-2xl text-gray-700">{score.total > 0 ? ((score.correct / score.total) * 100).toFixed(2) : 0}%</p>
+                </div>
+                 <button onClick={onFinish} className="mt-8 w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700">
+                    Back to Test Menu
+                </button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-6 bg-white rounded-lg shadow-md">
+            <h2 className="text-3xl font-bold text-gray-800 mb-6">{testData.title}</h2>
+
+            {testData.readingSection && testData.readingSection.length > 0 && (
+                <div className="mb-8">
+                    <h3 className="text-2xl font-semibold text-gray-700 border-b-2 pb-2 mb-4">Reading Section</h3>
+                    {testData.readingSection.map((passage, pIndex) => (
+                        <div key={pIndex} className="mb-6">
+                            <div className="p-4 bg-gray-50 rounded-lg border">
+                                 <h4 className="text-xl font-bold text-gray-800 mb-2">{passage.title}</h4>
+                                 <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{passage.text}</p>
+                            </div>
+                            <div className="pl-4 mt-4">
+                                {passage.questions.map((q, qIndex) => {
+                                    const questionId = `reading_${pIndex}_${qIndex}`;
+                                    return (
+                                        <div key={questionId} className="py-4 border-t">
+                                            <p className="font-medium mb-2">{qIndex + 1}. {q.questionText}</p>
+                                            {q.options.map((opt, oIndex) => (
+                                                <label key={oIndex} className="block p-2 hover:bg-gray-100 rounded-md">
+                                                    <input type="radio" name={questionId} value={String.fromCharCode(65 + oIndex)} onChange={(e) => handleAnswerChange(questionId, e.target.value)} className="mr-2"/>
+                                                    {String.fromCharCode(65 + oIndex)}. {opt}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+            
+             {testData.writingSection && testData.writingSection.length > 0 && (
+                 <div className="mb-8">
+                    <h3 className="text-2xl font-semibold text-gray-700 border-b-2 pb-2 mb-4">Writing & Language Section</h3>
+                     {testData.writingSection.map((q, qIndex) => {
+                        const questionId = `writing_${qIndex}`;
+                        return (
+                             <div key={questionId} className="py-4 border-t">
+                                <p className="font-medium mb-2">{qIndex + 1}. {q.questionText}</p>
+                                {q.options.map((opt, oIndex) => (
+                                    <label key={oIndex} className="block p-2 hover:bg-gray-100 rounded-md">
+                                        <input type="radio" name={questionId} value={String.fromCharCode(65 + oIndex)} onChange={(e) => handleAnswerChange(questionId, e.target.value)} className="mr-2"/>
+                                        {String.fromCharCode(65 + oIndex)}. {opt}
+                                    </label>
+                                ))}
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+
+             {testData.mathSection && testData.mathSection.length > 0 && (
+                 <div className="mb-8">
+                    <h3 className="text-2xl font-semibold text-gray-700 border-b-2 pb-2 mb-4">Math Section</h3>
+                     {testData.mathSection.map((q, qIndex) => {
+                        const questionId = `math_${qIndex}`;
+                        return (
+                             <div key={questionId} className="py-4 border-t">
+                                <p className="font-medium mb-2">{qIndex + 1}. {q.questionText}</p>
+                                {q.isMultipleChoice ? q.options.map((opt, oIndex) => (
+                                    <label key={oIndex} className="block p-2 hover:bg-gray-100 rounded-md">
+                                        <input type="radio" name={questionId} value={String.fromCharCode(65 + oIndex)} onChange={(e) => handleAnswerChange(questionId, e.target.value)} className="mr-2"/>
+                                         {String.fromCharCode(65 + oIndex)}. {opt}
+                                    </label>
+                                )) : (
+                                    <input type="text" placeholder="Your Answer" onChange={(e) => handleAnswerChange(questionId, e.target.value)} className="w-full mt-2 p-2 border rounded-md"/>
+                                )}
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+            
+            <button onClick={handleSubmit} className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-lg">
+                Submit Test
+            </button>
+             <button onClick={onFinish} className="mt-4 w-full bg-gray-200 text-gray-800 py-2 rounded-lg hover:bg-gray-300">
+                Cancel and Go Back
+            </button>
         </div>
     );
 }
@@ -669,12 +742,7 @@ function ProgressTracking() {
         <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-3xl font-bold text-gray-800 mb-6">Progress Tracking</h2>
             <p className="text-gray-600 mb-8">View your study performance and historical scores.</p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ProgressChart title="Math Score Trend" />
-                <ProgressChart title="Reading Score Trend" />
-                <ProgressChart title="Completed Modules" />
-                <ProgressChart title="Vocabulary Mastery" />
-            </div>
+            <ProgressChart title="Overall Score Trend" />
         </div>
     );
 }
@@ -715,7 +783,7 @@ function AIChat({ API_BASE_URL, userToken }) {
 
             if (response.status === 401 || response.status === 403) {
                 setChatError('Authentication required. Please log in to use the AI chat.');
-                setChatHistory((prev) => [...prev, { role: 'model', text: 'Authentication required. Please log in to continue this conversation.' }]);
+                setChatHistory((prev) => [...prev, { role: 'model', text: 'Authentication required.' }]);
                 return;
             }
 
@@ -730,7 +798,7 @@ function AIChat({ API_BASE_URL, userToken }) {
         } catch (error) {
             console.error("Error fetching AI chat response:", error);
             setChatError(`Error communicating with AI tutor: ${error.message}`);
-            setChatHistory((prev) => [...prev, { role: 'model', text: 'Sorry, I cannot respond at the moment. Please try again later.' }]);
+            setChatHistory((prev) => [...prev, { role: 'model', text: 'Sorry, I cannot respond at the moment.' }]);
         } finally {
             setIsLoadingChat(false);
         }
@@ -746,8 +814,8 @@ function AIChat({ API_BASE_URL, userToken }) {
                     <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-2`}>
                         <div className={`rounded-lg p-3 max-w-xs md:max-w-md shadow ${
                             message.role === 'user'
-                                ? 'bg-indigo-500 text-white rounded-bl-lg rounded-tl-lg rounded-tr-lg'
-                                : 'bg-blue-100 text-blue-800 rounded-tl-lg rounded-br-lg rounded-tr-lg'
+                                ? 'bg-indigo-500 text-white'
+                                : 'bg-blue-100 text-blue-800'
                         }`}>
                             {message.text}
                         </div>
@@ -755,7 +823,7 @@ function AIChat({ API_BASE_URL, userToken }) {
                 ))}
                 {isLoadingChat && (
                     <div className="flex justify-start mb-2">
-                        <div className="bg-blue-100 text-blue-800 rounded-lg p-3 max-w-xs md:max-w-md shadow flex items-center">
+                        <div className="bg-blue-100 text-blue-800 rounded-lg p-3 shadow flex items-center">
                             <svg className="animate-spin h-5 w-5 mr-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -771,19 +839,11 @@ function AIChat({ API_BASE_URL, userToken }) {
                     placeholder="Type your question here..."
                     value={currentMessage}
                     onChange={(e) => setCurrentMessage(e.target.value)}
-                    onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                            handleSendMessage();
-                        }
-                    }}
-                    className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+                    onKeyPress={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                    className="flex-1 p-3 border rounded-lg"
                     disabled={isLoadingChat}
                 />
-                <button
-                    onClick={handleSendMessage}
-                    className="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isLoadingChat}
-                >
+                <button onClick={handleSendMessage} className="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600" disabled={isLoadingChat}>
                     Send
                 </button>
             </div>
@@ -796,42 +856,22 @@ function SettingsPage() {
         <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-3xl font-bold text-gray-800 mb-6">Settings</h2>
             <p className="text-gray-600 mb-8">Manage your account preferences and application settings here.</p>
-
-            <div className="space-y-6">
-                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <label htmlFor="notifications" className="text-lg font-medium text-gray-700">Enable Notifications</label>
-                    <input type="checkbox" id="notifications" className="form-checkbox h-5 w-5 text-indigo-600 rounded-md focus:ring-indigo-500" />
-                </div>
-                <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <label htmlFor="email" className="block text-lg font-medium text-gray-700 mb-2">Email Address</label>
-                    <input type="email" id="email" defaultValue="user@example.com" className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200" />
-                </div>
-                <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                    <label htmlFor="theme" className="block text-lg font-medium text-gray-700 mb-2">Theme</label>
-                    <select id="theme" className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200">
-                        <option>Light</option>
-                        <option>Dark</option>
-                    </select>
-                </div>
-                <button className="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors duration-200 shadow-md">
-                    Save Settings
-                </button>
-            </div>
         </div>
     );
 }
 
 function AdminTools({ API_BASE_URL, userToken, userRole }) {
-    // State for Generate Passage
+    const [adminMessage, setAdminMessage] = useState({ type: '', text: '' });
+    
+    // Passage States
     const [generatePassageGenre, setGeneratePassageGenre] = useState('history');
     const [generatePassageWordCount, setGeneratePassageWordCount] = useState(300);
     const [generatePassageTopic, setGeneratePassageTopic] = useState('');
     const [isGeneratingPassage, setIsGeneratingPassage] = useState(false);
     const [passageForReview, setPassageForReview] = useState(null);
     const [isApproving, setIsApproving] = useState(false);
-    const [adminMessage, setAdminMessage] = useState({ type: '', text: '' });
     
-    // State for Generate Questions
+    // Question States
     const [generateQuestionSubject, setGenerateQuestionSubject] = useState('math');
     const [generateQuestionCount, setGenerateQuestionCount] = useState(1);
     const [generateQuestionDifficulty, setGenerateQuestionDifficulty] = useState('medium');
@@ -848,26 +888,18 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
         try {
             const response = await fetch(`${API_BASE_URL}/passages/generate`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
                 body: JSON.stringify({
                     genre: generatePassageGenre,
                     wordCount: generatePassageWordCount,
                     topic: generatePassageTopic
                 })
             });
-
             const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to generate passage.');
-            }
-
+            if (!response.ok) throw new Error(data.message || 'Failed to generate passage.');
             setAdminMessage({ type: 'success', text: 'Passage generated for review.' });
             setPassageForReview(data.passageData);
         } catch (error) {
-            console.error("Error generating passage:", error);
             setAdminMessage({ type: 'error', text: `Error generating passage: ${error.message}` });
         } finally {
             setIsGeneratingPassage(false);
@@ -875,32 +907,20 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
     };
     
     const handleApproveAndSavePassage = async () => {
-        if (!passageForReview) {
-            setAdminMessage({ type: 'error', text: 'No passage to approve. Generate one first!' });
-            return;
-        }
+        if (!passageForReview) return;
         setIsApproving(true);
         setAdminMessage({ type: 'loading', text: 'Approving passage and generating questions...' });
-
         try {
             const response = await fetch(`${API_BASE_URL}/passages/approve-and-generate-questions`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
                 body: JSON.stringify(passageForReview)
             });
-            
             const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to approve passage and generate questions.');
-            }
-
-            setAdminMessage({ type: 'success', text: data.message || 'Passage and questions saved successfully!' });
+            if (!response.ok) throw new Error(data.message || 'Failed to approve passage.');
+            setAdminMessage({ type: 'success', text: data.message });
             setPassageForReview(null);
         } catch (error) {
-            console.error("Error approving passage:", error);
             setAdminMessage({ type: 'error', text: `Error approving passage: ${error.message}` });
         } finally {
             setIsApproving(false);
@@ -916,14 +936,10 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
         setAdminMessage({ type: '', text: '' });
         setIsGeneratingQuestions(true);
         setQuestionsForReview([]);
-
         try {
             const response = await fetch(`${API_BASE_URL}/questions/generate`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
                 body: JSON.stringify({
                     subject: generateQuestionSubject,
                     count: generateQuestionCount,
@@ -931,17 +947,11 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     type: generateQuestionType,
                 })
             });
-
             const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to generate questions.');
-            }
-            
+            if (!response.ok) throw new Error(data.message || 'Failed to generate questions.');
             setAdminMessage({ type: 'success', text: data.message });
             setQuestionsForReview(data.questionsForReview);
-            
         } catch (error) {
-            console.error("Error generating questions:", error);
             setAdminMessage({ type: 'error', text: `Error generating questions: ${error.message}` });
         } finally {
             setIsGeneratingQuestions(false);
@@ -949,32 +959,20 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
     };
 
     const handleApproveQuestions = async () => {
-        if (questionsForReview.length === 0) {
-            setAdminMessage({ type: 'error', text: 'No questions to approve.' });
-            return;
-        }
+        if (questionsForReview.length === 0) return;
         setIsApprovingQuestions(true);
         setAdminMessage({ type: 'loading', text: 'Saving questions...' });
-
         try {
             const response = await fetch(`${API_BASE_URL}/questions/add-batch`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${userToken}`
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${userToken}` },
                 body: JSON.stringify({ questions: questionsForReview })
             });
-            
             const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to save question batch.');
-            }
-            
+            if (!response.ok) throw new Error(data.message || 'Failed to save question batch.');
             setAdminMessage({ type: 'success', text: data.message });
             setQuestionsForReview([]);
         } catch (error) {
-            console.error("Error approving questions:", error);
             setAdminMessage({ type: 'error', text: `Error saving questions: ${error.message}` });
         } finally {
             setIsApprovingQuestions(false);
@@ -987,12 +985,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
     };
 
     if (userRole !== 'admin') {
-        return (
-            <div className="p-6 bg-red-100 rounded-lg shadow-md text-center">
-                <h2 className="text-3xl font-bold text-red-800 mb-4">Access Denied</h2>
-                <p className="text-red-700">You must be logged in as an administrator to access these tools.</p>
-            </div>
-        );
+        return <div className="p-6 bg-red-100 rounded-lg text-center"><h2 className="text-red-800">Access Denied</h2></div>;
     }
 
     return (
@@ -1012,7 +1005,6 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                 </div>
             )}
 
-            {/* Generate Passage Form */}
             <div className="p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-200">
                 <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Passage & Linked Questions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1026,56 +1018,54 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="genPassageWordCount" className="block text-sm font-medium text-gray-700 mb-2">Word Count (approx):</label>
-                        <input type="number" id="genPassageWordCount" min="100" max="1000" className="w-full p-2 border border-gray-300 rounded-md" value={generatePassageWordCount} onChange={(e) => setGeneratePassageWordCount(Math.max(100, Math.min(1000, parseInt(e.target.value) || 100)))} disabled={isGeneratingPassage || isApproving} />
+                        <label htmlFor="genPassageWordCount" className="block text-sm font-medium text-gray-700 mb-2">Word Count:</label>
+                        <input type="number" id="genPassageWordCount" min="100" max="1000" className="w-full p-2 border border-gray-300 rounded-md" value={generatePassageWordCount} onChange={(e) => setGeneratePassageWordCount(e.target.value)} disabled={isGeneratingPassage || isApproving} />
                     </div>
                 </div>
                 <div>
                     <label htmlFor="genPassageTopic" className="block text-sm font-medium text-gray-700 mb-2">Topic (Optional):</label>
                     <input type="text" id="genPassageTopic" placeholder="e.g., impact of renewable energy" className="w-full p-2 border border-gray-300 rounded-md" value={generatePassageTopic} onChange={(e) => setGeneratePassageTopic(e.target.value)} disabled={isGeneratingPassage || isApproving} />
                 </div>
-                <button onClick={handleGeneratePassage} disabled={isGeneratingPassage || isApproving} className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full">
-                    {isGeneratingPassage ? <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Generate Passage for Review'}
+                <button onClick={handleGeneratePassage} disabled={isGeneratingPassage || isApproving} className="mt-4 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 w-full">
+                    {isGeneratingPassage ? 'Generating...' : 'Generate Passage for Review'}
                 </button>
                 
                 {passageForReview && (
                     <div className="mt-6 p-4 bg-purple-100 rounded-lg border border-purple-200">
                         <h4 className="text-lg font-semibold text-gray-800 mb-2">Review Generated Passage:</h4>
-                        <h5 className="font-semibold text-gray-700 mb-1">{passageForReview.title}</h5>
-                        <p className="text-gray-600 text-sm mb-2 whitespace-pre-wrap max-h-40 overflow-y-auto">{passageForReview.text}</p>
-                        <p className="text-gray-500 text-xs">Genre: {passageForReview.genre}, Word Count: {passageForReview.wordCount}</p>
+                        <div className="p-2 bg-white rounded-md max-h-40 overflow-y-auto">
+                            <h5 className="font-semibold text-gray-700 mb-1">{passageForReview.title}</h5>
+                            <p className="text-gray-600 text-sm whitespace-pre-wrap">{passageForReview.text}</p>
+                        </div>
                         <div className="flex space-x-4 mt-3">
-                            <button onClick={handleApproveAndSavePassage} disabled={isApproving || isGeneratingPassage} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
-                                <ThumbsUp className="w-4 h-4 mr-2" />
-                                {isApproving ? 'Saving...' : 'Approve & Create Questions'}
+                            <button onClick={handleApproveAndSavePassage} disabled={isApproving} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                                <ThumbsUp className="w-4 h-4 mr-2" /> {isApproving ? 'Saving...' : 'Approve & Create Questions'}
                             </button>
-                             <button onClick={handleRejectPassage} disabled={isApproving || isGeneratingPassage} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
-                                <ThumbsDown className="w-4 h-4 mr-2" />
-                                Reject
+                            <button onClick={handleRejectPassage} disabled={isApproving} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                                <ThumbsDown className="w-4 h-4 mr-2" /> Reject
                             </button>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Generate Standalone Questions Form */}
             <div className="mt-10 p-6 bg-teal-50 rounded-lg shadow-inner border border-teal-200">
                 <h3 className="text-2xl font-semibold text-teal-800 mb-4">Generate Standalone Questions</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label htmlFor="genQuestionSubject" className="block text-sm font-medium text-gray-700 mb-2">Subject:</label>
-                        <select id="genQuestionSubject" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionSubject} onChange={(e) => setGenerateQuestionSubject(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
+                        <select id="genQuestionSubject" className="w-full p-2 border rounded-md" value={generateQuestionSubject} onChange={e => setGenerateQuestionSubject(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
                             <option value="math">Math</option>
                             <option value="writing">Writing & Language</option>
                         </select>
                     </div>
                     <div>
-                        <label htmlFor="genQuestionCount" className="block text-sm font-medium text-gray-700 mb-2">Count (max 5):</label>
-                        <input type="number" id="genQuestionCount" min="1" max="5" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionCount} onChange={(e) => setGenerateQuestionCount(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))} disabled={isGeneratingQuestions || isApprovingQuestions} />
+                        <label htmlFor="genQuestionCount" className="block text-sm font-medium text-gray-700 mb-2">Count:</label>
+                        <input type="number" id="genQuestionCount" min="1" max="5" className="w-full p-2 border rounded-md" value={generateQuestionCount} onChange={e => setGenerateQuestionCount(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions} />
                     </div>
                     <div>
                         <label htmlFor="genQuestionDifficulty" className="block text-sm font-medium text-gray-700 mb-2">Difficulty:</label>
-                        <select id="genQuestionDifficulty" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionDifficulty} onChange={(e) => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
+                         <select id="genQuestionDifficulty" className="w-full p-2 border rounded-md" value={generateQuestionDifficulty} onChange={e => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
                             <option value="easy">Easy</option>
                             <option value="medium">Medium</option>
                             <option value="hard">Hard</option>
@@ -1083,11 +1073,11 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     </div>
                     <div>
                         <label htmlFor="genQuestionType" className="block text-sm font-medium text-gray-700 mb-2">Type (Optional):</label>
-                        <input type="text" id="genQuestionType" placeholder="e.g., algebra, grammar" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionType} onChange={(e) => setGenerateQuestionType(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions} />
+                        <input type="text" id="genQuestionType" placeholder="e.g., algebra, grammar" className="w-full p-2 border rounded-md" value={generateQuestionType} onChange={e => setGenerateQuestionType(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions} />
                     </div>
                 </div>
-                <button onClick={handleGenerateQuestions} disabled={isGeneratingQuestions || isApprovingQuestions} className="mt-4 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full">
-                    {isGeneratingQuestions ? <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Generate Questions for Review'}
+                <button onClick={handleGenerateQuestions} disabled={isGeneratingQuestions || isApprovingQuestions} className="mt-4 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 w-full">
+                    {isGeneratingQuestions ? 'Generating...' : 'Generate Questions for Review'}
                 </button>
                 
                 {questionsForReview.length > 0 && (
@@ -1096,30 +1086,23 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                         {questionsForReview.map((q, qIndex) => (
                             <div key={qIndex} className="bg-white p-4 rounded-md shadow-sm">
                                 <p className="font-medium text-gray-800">{qIndex + 1}. {q.questionText}</p>
-                                
                                 {q.isMultipleChoice && q.options && q.options.length > 0 && (
-                                    <ul className="list-none text-gray-700 text-sm mt-2 space-y-1 pl-4">
-                                        {q.options.map((opt, oi) => 
-                                            <li key={oi}>
-                                                <span className="font-mono">{String.fromCharCode(65 + oi)}.</span> {opt}
-                                            </li>
-                                        )}
+                                    <ul className="list-none text-gray-700 text-sm mt-2 pl-4">
+                                        {q.options.map((opt, oi) => <li key={oi}>{String.fromCharCode(65 + oi)}. {opt}</li>)}
                                     </ul>
                                 )}
-                                <div className="mt-3 pt-3 border-t border-teal-100 text-sm space-y-1">
-                                    <p><strong className="font-semibold text-green-700">Correct Answer:</strong> {q.correctAnswer}</p>
-                                    <p><strong className="font-semibold text-gray-600">Explanation:</strong> {q.explanation}</p>
+                                <div className="mt-3 pt-3 border-t text-sm space-y-1">
+                                    <p><strong className="text-green-700">Answer:</strong> {q.correctAnswer}</p>
+                                    <p><strong className="text-gray-600">Explanation:</strong> {q.explanation}</p>
                                 </div>
                             </div>
                         ))}
                         <div className="flex space-x-4 mt-4">
-                            <button onClick={handleApproveQuestions} disabled={isApprovingQuestions} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
-                                <ThumbsUp className="w-4 h-4 mr-2" />
-                                {isApprovingQuestions ? 'Saving...' : 'Approve & Save'}
+                            <button onClick={handleApproveQuestions} disabled={isApprovingQuestions} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                                <ThumbsUp className="w-4 h-4 mr-2" />{isApprovingQuestions ? 'Saving...' : 'Approve & Save'}
                             </button>
-                             <button onClick={handleRejectQuestions} disabled={isApprovingQuestions} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
-                                <ThumbsDown className="w-4 h-4 mr-2" />
-                                Reject
+                            <button onClick={handleRejectQuestions} disabled={isApprovingQuestions} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg flex items-center justify-center">
+                                <ThumbsDown className="w-4 h-4 mr-2" /> Reject
                             </button>
                         </div>
                     </div>
@@ -1136,60 +1119,45 @@ export default function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [userEmail, setUserEmail] = useState(null);
     const [userToken, setUserToken] = useState(localStorage.getItem('satTutorToken') || null);
-    const [userRole, setUserRole] = useState('guest'); // Store user role
+    const [userRole, setUserRole] = useState('guest');
 
     useEffect(() => {
-        if (userToken) {
+        const token = localStorage.getItem('satTutorToken');
+        if (token) {
             try {
-                const base64Url = userToken.split('.')[1];
+                const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 const decodedToken = JSON.parse(window.atob(base64));
-                setUserEmail(decodedToken.email || "Authenticated User");
-                setUserRole(decodedToken.role || 'student'); // Set user role from token
+                setUserEmail(decodedToken.email);
+                setUserRole(decodedToken.role);
                 setIsAuthenticated(true);
                 setCurrentPage('dashboard');
             } catch (e) {
-                console.error("Error decoding token:", e);
-                setUserEmail("Authenticated User");
-                setUserRole('guest'); // Fallback to guest
-                setIsAuthenticated(false);
-                setCurrentPage('login');
+                handleLogout();
             }
         } else {
             setIsAuthenticated(false);
-            setUserEmail(null);
-            setUserRole('guest');
             setCurrentPage('login');
         }
     }, [userToken]);
 
-    const handleLogin = (token, email, role) => { // Added role parameter
+    const handleLogin = (token, email, role) => {
         localStorage.setItem('satTutorToken', token);
         setUserToken(token);
-        setUserEmail(email);
-        setUserRole(role); // Set role directly from login response
     };
 
     const handleLogout = () => {
         localStorage.removeItem('satTutorToken');
         setUserToken(null);
-        setIsAuthenticated(false);
-        setUserEmail(null);
-        setUserRole('guest');
     };
 
-    const navigateToRegister = () => {
-        setCurrentPage('register');
-    };
-
-    const navigateToLoginAfterRegister = () => {
-        setCurrentPage('login');
-    };
+    const navigateToRegister = () => setCurrentPage('register');
+    const navigateToLogin = () => setCurrentPage('login');
 
     const renderPage = () => {
         if (!isAuthenticated) {
             if (currentPage === 'register') {
-                return <RegisterPage onRegisterSuccess={navigateToLoginAfterRegister} API_BASE_URL={API_BASE_URL} />;
+                return <RegisterPage onRegisterSuccess={navigateToLogin} API_BASE_URL={API_BASE_URL} />;
             }
             return <LoginPage onLoginSuccess={handleLogin} onNavigateToRegister={navigateToRegister} API_BASE_URL={API_BASE_URL} />;
         }
@@ -1200,7 +1168,7 @@ export default function App() {
             case 'study':
                 return <StudyModules API_BASE_URL={API_BASE_URL} userToken={userToken} />;
             case 'practice':
-                return <PracticeTests />;
+                return <PracticeTests API_BASE_URL={API_BASE_URL} userToken={userToken} />;
             case 'progress':
                 return <ProgressTracking />;
             case 'ai-chat':
@@ -1218,10 +1186,9 @@ export default function App() {
         <div className="flex h-screen bg-gray-100 font-inter">
             {isAuthenticated && (
                 <>
-                    <aside className={`bg-white shadow-lg w-64 p-6 hidden md:block transition-all duration-300 ease-in-out`}>
+                    <aside className={`bg-white shadow-lg w-64 p-6 hidden md:block`}>
                         <div className="text-2xl font-bold text-indigo-700 mb-10 flex items-center">
-                            <img src="https://placehold.co/40x40/6366F1/FFFFFF?text=SAT" alt="SAT Logo" className="mr-3 rounded-md" />
-                            SAT Tutor
+                            <Sparkles className="text-yellow-400 mr-2"/> SAT Tutor
                         </div>
                         <nav>
                             <NavItem icon={<Home />} text="Dashboard" page="dashboard" setCurrentPage={setCurrentPage} currentPage={currentPage} />
@@ -1229,81 +1196,26 @@ export default function App() {
                             <NavItem icon={<FileText />} text="Practice Tests" page="practice" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                             <NavItem icon={<TrendingUp />} text="Progress Tracking" page="progress" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                             <NavItem icon={<MessageSquare />} text="AI Tutoring Chat" page="ai-chat" setCurrentPage={setCurrentPage} currentPage={currentPage} />
-                            <NavItem icon={<Settings />} text="Settings" page="settings" setCurrentPage={setCurrentPage} currentPage={currentPage} />
-                            {userRole === 'admin' && ( // Conditionally render Admin Tools nav item
+                            {userRole === 'admin' && (
                                 <NavItem icon={<PlusCircle />} text="Admin Tools" page="admin-tools" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                             )}
                         </nav>
-                    </aside>
-
-                    {isSidebarOpen && (
-                        <div
-                            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                            onClick={() => setIsSidebarOpen(false)}
-                        ></div>
-                    )}
-
-                    <div className={`fixed top-0 left-0 h-full bg-white shadow-lg w-64 p-6 z-50 md:hidden transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-                        <div className="flex justify-between items-center mb-10">
-                            <div className="text-2xl font-bold text-indigo-700 flex items-center">
-                                <img src="https://placehold.co/40x40/6366F1/FFFFFF?text=SAT" alt="SAT Logo" className="mr-3 rounded-md" />
-                                SAT Tutor
-                            </div>
-                            <button onClick={() => setIsSidebarOpen(false)} className="text-gray-600 hover:text-gray-900 focus:outline-none">
-                                <X className="w-6 h-6" />
-                            </button>
+                         <div className="absolute bottom-6 left-6 w-52">
+                            <NavItem icon={<Settings />} text="Settings" page="settings" setCurrentPage={setCurrentPage} currentPage={currentPage} />
                         </div>
-                        <nav>
-                            <NavItem icon={<Home />} text="Dashboard" page="dashboard" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            <NavItem icon={<BookOpen />} text="Study Modules" page="study" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            <NavItem icon={<FileText />} text="Practice Tests" page="practice" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            <NavItem icon={<TrendingUp />} text="Progress Tracking" page="progress" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            <NavItem icon={<MessageSquare />} text="AI Tutoring Chat" page="ai-chat" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            <NavItem icon={<Settings />} text="Settings" page="settings" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            {userRole === 'admin' && ( // Conditionally render Admin Tools nav item
-                                <NavItem icon={<PlusCircle />} text="Admin Tools" page="admin-tools" setCurrentPage={setCurrentPage} currentPage={currentPage} onClick={() => setIsSidebarOpen(false)} />
-                            )}
-                        </nav>
-                    </div >
+                    </aside>
                 </>
             )}
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="flex items-center justify-between p-4 bg-white shadow-md md:px-6">
+                <header className="flex items-center justify-between p-4 bg-white shadow-md">
+                    <h1 className="text-2xl font-semibold text-gray-800">SAT Study Assistant</h1>
                     {isAuthenticated && (
-                        <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-gray-600 hover:text-gray-900 focus:outline-none">
-                            <Menu className="w-6 h-6" />
-                        </button>
-                    )}
-                    <h1 className="text-2xl font-semibold text-gray-800 hidden md:block">SAT Study Assistant</h1>
-                    {isAuthenticated ? (
                         <div className="flex items-center space-x-4">
                             <span className="text-gray-700 hidden sm:block">Welcome, {userEmail}!</span>
-                            <button
-                                onClick={handleLogout}
-                                className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md flex items-center"
-                            >
-                                <LogOut className="w-4 h-4 mr-2" /> Log Out
+                            <button onClick={handleLogout} className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600">
+                                <LogOut className="inline w-4 h-4 mr-2" />Log Out
                             </button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center space-x-4">
-                            {currentPage === 'register' && (
-                                <button
-                                    onClick={navigateToLoginAfterRegister}
-                                    className="bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md"
-                                >
-                                    Back to Login
-                                </button>
-                            )}
-                            {currentPage === 'login' && (
-                                <button
-                                    onClick={navigateToRegister}
-                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors duration-200 shadow-md"
-                                >
-                                    Register
-                                </button>
-                            )}
                         </div>
                     )}
                 </header>
