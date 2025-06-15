@@ -10,7 +10,7 @@ if (!GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Using a more recent model
 
 // Helper to define the JSON schema for generated SAT questions
 const SAT_QUESTION_SCHEMA = {
@@ -43,7 +43,6 @@ const SAT_PASSAGE_SCHEMA = {
         text: { type: "STRING" },
         genre: { type: "STRING", enum: ["literary_narrative", "social_science", "natural_science", "history"] },
         wordCount: { type: "NUMBER" },
-        // Potentially add other fields like source, author, etc.
     },
     required: ["title", "text", "genre", "wordCount"]
 };
@@ -64,26 +63,29 @@ const generateAndFormatSatQuestions = async (subject, count, difficulty, type, p
     if (type) {
         prompt += ` Focus on '${type}' type questions.`;
     }
+    
+    // **FIXED**: Add explicit instructions for standalone vs. passage-based questions
     if (subject === 'reading' && passageText) {
-        prompt += ` These questions should be based on the following passage: "${passageText}".`;
+        prompt += ` These questions must be based on the following passage: "${passageText}".`;
+    } else if (subject === 'math' || subject === 'writing') {
+        prompt += ` These questions must be standalone and NOT based on any reading passage.`;
     }
 
     prompt += ` For each question, include:
-    - subject (string: 'math', 'reading', or 'writing')
-    - type (string: e.g., 'algebra', 'geometry', 'grammar', 'main_idea', 'passage_question', 'rhetoric')
+    - subject (string: '${subject}')
+    - type (string: e.g., 'algebra', 'geometry', 'grammar', 'rhetoric')
     - questionText (string)
-    - options (array of strings, for multiple choice. If not multiple choice, provide an empty array)
+    - options (array of strings for multiple choice. If not multiple choice, provide an empty array)
     - correctAnswer (string, the letter for multiple choice, or numerical/text answer for grid-in/short answer)
     - explanation (string, detailed explanation of the answer)
-    - difficulty (string: 'easy', 'medium', or 'hard')
+    - difficulty (string: '${difficulty}')
     - isMultipleChoice (boolean)`;
 
     if (passageId) {
         prompt += `\n- passageId (string: "${passageId}")`;
-    } else if (subject === 'reading' && !passageId) {
-        // If it's a reading question but no specific passageId is given, imply it's general or AI should provide.
-        // For structured output, we must ensure passageId is always present or null.
-        prompt += `\n- passageId (string, can be 'null' if not linked to a specific external passage)`;
+    } else {
+        // Ensure passageId is explicitly null for non-passage questions
+        prompt += `\n- passageId (must be null)`;
     }
 
     prompt += `\nProvide the output as a JSON array adhering to the specified schema.`;
@@ -99,24 +101,25 @@ const generateAndFormatSatQuestions = async (subject, count, difficulty, type, p
         };
 
         const result = await geminiModel.generateContent(payload);
-        const jsonResponse = JSON.parse(result.response.text());
+        const jsonResponseText = result.response.text();
+        const jsonResponse = JSON.parse(jsonResponseText);
 
         if (!Array.isArray(jsonResponse)) {
-            console.error("Gemini did not return a JSON array as expected:", jsonResponse);
+            console.error("Gemini did not return a JSON array as expected:", jsonResponseText);
             throw new Error("Failed to generate questions in the expected format.");
         }
-
-        // Ensure passageId is correctly set for generated questions if provided
+        
+        // Final check to ensure passageId is null for non-reading questions
         return jsonResponse.map(q => ({
             ...q,
-            passageId: (q.subject === 'reading' && passageId) ? passageId : (q.subject === 'reading' ? (q.passageId || null) : null)
+            passageId: subject === 'reading' ? (passageId || q.passageId || null) : null
         }));
 
     } catch (error) {
         console.error("Error calling Gemini API for question generation:", error);
         let rawText = "No raw text available.";
-        if (error.result && error.result.response && error.result.response.text) {
-             rawText = error.result.response.text();
+        if (error.response && error.response.text) {
+             rawText = error.response.text();
         }
         throw new Error(`Gemini question generation failed: ${error.message}. Raw response: ${rawText}`);
     }
@@ -150,7 +153,6 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
         const result = await geminiModel.generateContent(payload);
         const jsonResponse = JSON.parse(result.response.text());
 
-        // Basic validation of the generated JSON structure
         if (typeof jsonResponse !== 'object' || !jsonResponse.text || !jsonResponse.title) {
             console.error("Gemini did not return a JSON object with text and title as expected:", jsonResponse);
             throw new Error("Failed to generate passage in the expected format.");
@@ -160,9 +162,9 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
 
     } catch (error) {
         console.error("Error calling Gemini API for passage generation:", error);
-        let rawText = "No raw text available.";
-        if (error.result && error.result.response && error.result.response.text) {
-             rawText = error.result.response.text();
+         let rawText = "No raw text available.";
+        if (error.response && error.response.text) {
+             rawText = error.response.text();
         }
         throw new Error(`Gemini passage generation failed: ${error.message}. Raw response: ${rawText}`);
     }
@@ -170,10 +172,25 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
 
 
 // Existing Gemini Service functions (no changes to these)
-const getChatResponse = async (chatHistory) => { /* ... existing code ... */ return result.response.text(); };
-const getVocabularyExplanation = async (word) => { /* ... existing code ... */ return result.response.text(); };
-const getEssayBrainstorming = async (topic) => { /* ... existing code ... */ return result.response.text(); };
-const solveMathProblem = async (problem) => { /* ... existing code ... */ return result.response.text(); };
+const getChatResponse = async (chatHistory) => {
+    const result = await geminiModel.generateContent(chatHistory.map(m => m.text).join("\n"));
+    return result.response.text();
+};
+const getVocabularyExplanation = async (word) => {
+    const prompt = `Provide a detailed explanation for the SAT vocabulary word "${word}", including its definition, a sample sentence, and synonyms.`;
+    const result = await geminiModel.generateContent(prompt);
+    return result.response.text();
+};
+const getEssayBrainstorming = async (topic) => {
+    const prompt = `Generate a list of brainstorming ideas, arguments, and counter-arguments for an SAT essay on the topic: "${topic}".`;
+    const result = await geminiModel.generateContent(prompt);
+    return result.response.text();
+};
+const solveMathProblem = async (problem) => {
+    const prompt = `Solve the following math problem, showing a clear, step-by-step solution: "${problem}"`;
+    const result = await geminiModel.generateContent(prompt);
+    return result.response.text();
+};
 
 module.exports = {
     getChatResponse,
@@ -181,5 +198,5 @@ module.exports = {
     getEssayBrainstorming,
     solveMathProblem,
     generateAndFormatSatQuestions,
-    generateSatPassage // Export the new passage generation function
+    generateSatPassage
 };

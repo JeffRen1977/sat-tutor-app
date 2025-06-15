@@ -1,118 +1,115 @@
-// backend/routes/questionRoutes.js
+// backend/routes/passageRoutes.js
 const express = require('express');
 const router = express.Router();
-const authenticateToken = require('../middleware/authMiddleware'); // Import auth middleware
-const { addSatQuestion, fetchSatQuestions } = require('../services/questionService'); // Import question service functions
-const { generateAndFormatSatQuestions } = require('../services/geminiService'); // Import AI generation
-const { isUserAdmin } = require('../services/authService'); // Import admin check
+const authenticateToken = require('../middleware/authMiddleware');
+// Correctly import the service functions
+const { addSatPassage, generatePassageForReview, fetchSatPassages, approvePassageAndCreateQuestions } = require('../services/passageService'); 
+const { isUserAdmin } = require('../services/authService');
 
-router.use(authenticateToken); // All question routes are protected
+router.use(authenticateToken); // All passage routes are protected
 
-// Endpoint to add a single new SAT question to Firestore.
+/**
+ * Endpoint: Adds a new SAT passage to Firestore directly. This is called AFTER review and approval.
+ * Requires admin authentication.
+ * Body: { title, text, genre, wordCount }
+ */
 router.post('/add', async (req, res) => {
-    const questionData = req.body;
-    const userEmail = req.user.email;
+    const { title, text, genre, wordCount } = req.body;
+    const userEmail = req.user.email; // Email from authenticated JWT
+
+    if (!title || !text || !genre || !wordCount) {
+        return res.status(400).json({ message: 'Missing required passage fields (title, text, genre, wordCount).' });
+    }
 
     try {
-        const result = await addSatQuestion(questionData, userEmail);
+        const result = await addSatPassage(
+            { title, text, genre, wordCount },
+            userEmail
+        );
         res.status(201).json(result);
     } catch (error) {
-        console.error('Error in /api/questions/add route:', error);
+        console.error('Error in /api/passages/add route:', error);
         if (error.message.includes('Only administrators can add')) {
             return res.status(403).json({ message: error.message });
         }
-        res.status(500).json({ message: 'Failed to add question.', details: error.message });
+        res.status(500).json({ message: 'Failed to add passage.', details: error.message });
     }
 });
 
-// NEW Endpoint: Add a batch of questions after admin approval.
-router.post('/add-batch', async (req, res) => {
-    const { questions } = req.body;
+
+/**
+ * Endpoint: Generate an SAT passage using AI FOR REVIEW.
+ * This does NOT save it to the database.
+ * Requires admin authentication.
+ * Body: { genre, wordCount, topic (optional) }
+ */
+router.post('/generate', async (req, res) => {
+    const { genre, wordCount, topic } = req.body;
     const userEmail = req.user.email;
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-        return res.status(400).json({ message: 'A non-empty array of questions is required.' });
+    if (!genre || !wordCount) {
+        return res.status(400).json({ message: 'Genre and wordCount are required for passage generation.' });
     }
 
     try {
-        const isAdmin = await isUserAdmin(userEmail);
-        if (!isAdmin) {
-            return res.status(403).json({ message: 'Only administrators can add questions.' });
-        }
+        // Call the service function that only generates the passage for review
+        const result = await generatePassageForReview(genre, wordCount, topic, userEmail);
         
-        const addPromises = questions.map(q => addSatQuestion(q, userEmail));
-        const results = await Promise.allSettled(addPromises);
+        // The service now returns { message, passageData }, which we can send to the frontend
+        res.status(200).json(result);
         
-        const successfulAdds = results.filter(r => r.status === 'fulfilled').length;
-        const failedAdds = results.length - successfulAdds;
-
-        res.status(201).json({ 
-            message: `Batch complete. Successfully saved ${successfulAdds} questions.`,
-            successful: successfulAdds,
-            failed: failedAdds
-        });
-
     } catch (error) {
-        console.error('Error in /api/questions/add-batch route:', error);
-        res.status(500).json({ message: 'Failed to add question batch.', details: error.message });
-    }
-});
-
-// Endpoint to fetch SAT questions from Firestore.
-router.get('/fetch', async (req, res) => {
-    const { subject, count = '1', difficulty, type, passageId } = req.query;
-
-    if (!subject) {
-        return res.status(400).json({ message: 'Subject is required to fetch questions.' });
-    }
-
-    try {
-        const result = await fetchSatQuestions(subject, count, difficulty, type, passageId);
-        if (result.questions.length === 0) {
-            return res.status(404).json({ message: 'No questions found matching the criteria.' });
+        console.error('Error in /api/passages/generate route:', error);
+        if (error.message.includes('Only administrators can')) {
+            return res.status(403).json({ message: error.message });
         }
-        res.json(result);
-    } catch (error) {
-        console.error('Error in /api/questions/fetch route:', error);
-        res.status(500).json({ message: 'Failed to fetch questions.', details: error.message });
+        res.status(500).json({ message: 'Failed to generate passage.', details: error.message });
     }
 });
 
 /**
- * UPDATED Endpoint: Generate SAT questions using AI for REVIEW.
- * This does NOT save them to the database.
- * Body: { subject, count, difficulty, type (optional) }
+ * NEW Endpoint: Approve a passage, save it, generate questions, and save them.
+ * Requires admin authentication.
+ * Body: { title, text, genre, wordCount } (the full passage object)
  */
-router.post('/generate', async (req, res) => {
-    const { subject, count, difficulty, type, passageId } = req.body;
+router.post('/approve-and-generate-questions', async (req, res) => {
+    const passageData = req.body;
     const userEmail = req.user.email;
 
-    if (!subject || !count || !difficulty) {
-        return res.status(400).json({ message: 'Subject, count, and difficulty are required for generation.' });
+    if (!passageData || !passageData.title || !passageData.text) {
+        return res.status(400).json({ message: 'Full passage data is required for approval.' });
     }
     
     try {
-        const isAdmin = await isUserAdmin(userEmail);
-        if (!isAdmin) {
-            return res.status(403).json({ message: 'Only administrators can generate questions.' });
-        }
-
-        // We only generate the questions and return them for review.
-        const generatedQuestions = await generateAndFormatSatQuestions(subject, count, difficulty, type, null, passageId);
-
-        if (!generatedQuestions || generatedQuestions.length === 0) {
-            return res.status(404).json({ message: 'AI failed to generate questions, or generated an empty list.' });
-        }
-        
-        // Return the generated questions for the admin to review on the frontend.
-        res.status(200).json({
-            message: `Generated ${generatedQuestions.length} questions for review.`,
-            questionsForReview: generatedQuestions
-        });
-
+        const result = await approvePassageAndCreateQuestions(passageData, userEmail);
+        res.status(201).json(result);
     } catch (error) {
-        console.error('Error in /api/questions/generate route:', error);
-        res.status(500).json({ message: 'Failed to generate questions.', details: error.message });
+        console.error('Error in /approve-and-generate-questions route:', error);
+        if (error.message.includes('Only administrators can')) {
+            return res.status(403).json({ message: error.message });
+        }
+        res.status(500).json({ message: 'Failed to approve passage and generate questions.', details: error.message });
+    }
+});
+
+
+/**
+ * Endpoint: Fetch SAT passages from the database.
+ * Requires authentication.
+ * Query: { genre (optional), count (optional, default 1), passageId (optional) }
+ */
+router.get('/fetch', async (req, res) => {
+    const { genre, count, passageId } = req.query;
+
+    try {
+        const result = await fetchSatPassages(genre, count, passageId);
+        if (result.passages.length === 0) {
+            return res.status(404).json({ message: 'No passages found matching the criteria.' });
+        }
+        res.json(result);
+    } catch (error) {
+        console.error('Error in /api/passages/fetch route:', error);
+        res.status(500).json({ message: 'Failed to fetch passages.', details: error.message });
     }
 });
 

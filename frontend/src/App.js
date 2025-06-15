@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, BookOpen, FileText, TrendingUp, MessageSquare, Settings, Menu, X, Sparkles, LogOut, CheckCircle, XCircle, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Home, BookOpen, FileText, TrendingUp, MessageSquare, Settings, Menu, X, Sparkles, LogOut, CheckCircle, XCircle, ArrowLeft, PlusCircle, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 // Define the base URL for your backend API
 const API_BASE_URL = 'http://localhost:3001/api';
@@ -1268,10 +1268,9 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
     const [generateQuestionCount, setGenerateQuestionCount] = useState(1);
     const [generateQuestionDifficulty, setGenerateQuestionDifficulty] = useState('medium');
     const [generateQuestionType, setGenerateQuestionType] = useState('');
-    const [generateQuestionPassageId, setGenerateQuestionPassageId] = useState('');
     const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
     const [questionsForReview, setQuestionsForReview] = useState([]);
-
+    const [isApprovingQuestions, setIsApprovingQuestions] = useState(false);
 
     const handleGeneratePassage = async () => {
         setAdminMessage({ type: '', text: '' });
@@ -1307,7 +1306,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
         }
     };
     
-    const handleApproveAndSave = async () => {
+    const handleApproveAndSavePassage = async () => {
         if (!passageForReview) {
             setAdminMessage({ type: 'error', text: 'No passage to approve. Generate one first!' });
             return;
@@ -1339,18 +1338,18 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
             setIsApproving(false);
         }
     };
+
+    const handleRejectPassage = () => {
+        setPassageForReview(null);
+        setAdminMessage({ type: 'info', text: 'Generated passage has been discarded.' });
+    };
     
-    // Logic for generating questions for review
     const handleGenerateQuestions = async () => {
         setAdminMessage({ type: '', text: '' });
         setIsGeneratingQuestions(true);
         setQuestionsForReview([]);
 
         try {
-            // NOTE: The backend '/questions/generate' endpoint in the uploaded files
-            // generates AND saves in one step. For a review workflow, this would need
-            // to be split into 'generate' and 'add' endpoints, similar to passages.
-            // For now, this function will work with the existing backend logic.
             const response = await fetch(`${API_BASE_URL}/questions/generate`, {
                 method: 'POST',
                 headers: {
@@ -1362,7 +1361,6 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     count: generateQuestionCount,
                     difficulty: generateQuestionDifficulty,
                     type: generateQuestionType,
-                    passageId: generateQuestionPassageId || null
                 })
             });
 
@@ -1371,11 +1369,8 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                 throw new Error(data.message || 'Failed to generate questions.');
             }
             
-            setAdminMessage({ type: 'success', text: data.message || `Successfully generated and saved ${data.successful} questions.` });
-            
-            // To show the generated questions for review, we would ideally get them
-            // back from the API. Since the current backend doesn't, we'll leave this empty.
-            // setQuestionsForReview(data.generatedQuestions); // <-- This would be used if API returned full questions
+            setAdminMessage({ type: 'success', text: data.message });
+            setQuestionsForReview(data.questionsForReview);
             
         } catch (error) {
             console.error("Error generating questions:", error);
@@ -1383,6 +1378,44 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
         } finally {
             setIsGeneratingQuestions(false);
         }
+    };
+
+    const handleApproveQuestions = async () => {
+        if (questionsForReview.length === 0) {
+            setAdminMessage({ type: 'error', text: 'No questions to approve.' });
+            return;
+        }
+        setIsApprovingQuestions(true);
+        setAdminMessage({ type: 'loading', text: 'Saving questions...' });
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/questions/add-batch`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${userToken}`
+                },
+                body: JSON.stringify({ questions: questionsForReview })
+            });
+            
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to save question batch.');
+            }
+            
+            setAdminMessage({ type: 'success', text: data.message });
+            setQuestionsForReview([]);
+        } catch (error) {
+            console.error("Error approving questions:", error);
+            setAdminMessage({ type: 'error', text: `Error saving questions: ${error.message}` });
+        } finally {
+            setIsApprovingQuestions(false);
+        }
+    };
+
+    const handleRejectQuestions = () => {
+        setQuestionsForReview([]);
+        setAdminMessage({ type: 'info', text: 'Generated questions have been discarded.' });
     };
 
     if (userRole !== 'admin') {
@@ -1404,7 +1437,8 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
             {adminMessage.text && (
                 <div className={`p-4 mb-6 rounded-lg text-center ${
                     adminMessage.type === 'error' ? 'bg-red-100 text-red-700' : 
-                    (adminMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')
+                    (adminMessage.type === 'success' ? 'bg-green-100 text-green-700' : 
+                    (adminMessage.type === 'info' ? 'bg-blue-100 text-blue-700' : 'bg-blue-100 text-blue-700'))
                 }`}>
                     {adminMessage.text}
                 </div>
@@ -1412,7 +1446,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
 
             {/* Generate Passage Form */}
             <div className="p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-200">
-                <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Passage & Questions</h3>
+                <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Passage & Linked Questions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label htmlFor="genPassageGenre" className="block text-sm font-medium text-gray-700 mb-2">Genre:</label>
@@ -1442,32 +1476,38 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                         <h5 className="font-semibold text-gray-700 mb-1">{passageForReview.title}</h5>
                         <p className="text-gray-600 text-sm mb-2 whitespace-pre-wrap max-h-40 overflow-y-auto">{passageForReview.text}</p>
                         <p className="text-gray-500 text-xs">Genre: {passageForReview.genre}, Word Count: {passageForReview.wordCount}</p>
-                        <button onClick={handleApproveAndSave} disabled={isApproving || isGeneratingPassage} className="mt-3 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full">
-                            {isApproving ? <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Approve, Save Passage & Generate 3 Questions'}
-                        </button>
+                        <div className="flex space-x-4 mt-3">
+                            <button onClick={handleApproveAndSavePassage} disabled={isApproving || isGeneratingPassage} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
+                                <ThumbsUp className="w-4 h-4 mr-2" />
+                                {isApproving ? 'Saving...' : 'Approve & Create Questions'}
+                            </button>
+                             <button onClick={handleRejectPassage} disabled={isApproving || isGeneratingPassage} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
+                                <ThumbsDown className="w-4 h-4 mr-2" />
+                                Reject
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Generate Questions Form (FIXED DISPLAY) */}
+            {/* Generate Standalone Questions Form */}
             <div className="mt-10 p-6 bg-teal-50 rounded-lg shadow-inner border border-teal-200">
                 <h3 className="text-2xl font-semibold text-teal-800 mb-4">Generate Standalone Questions</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label htmlFor="genQuestionSubject" className="block text-sm font-medium text-gray-700 mb-2">Subject:</label>
-                        <select id="genQuestionSubject" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionSubject} onChange={(e) => setGenerateQuestionSubject(e.target.value)} disabled={isGeneratingQuestions}>
+                        <select id="genQuestionSubject" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionSubject} onChange={(e) => setGenerateQuestionSubject(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
                             <option value="math">Math</option>
-                            <option value="reading">Reading</option>
                             <option value="writing">Writing & Language</option>
                         </select>
                     </div>
                     <div>
                         <label htmlFor="genQuestionCount" className="block text-sm font-medium text-gray-700 mb-2">Count (max 5):</label>
-                        <input type="number" id="genQuestionCount" min="1" max="5" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionCount} onChange={(e) => setGenerateQuestionCount(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))} disabled={isGeneratingQuestions} />
+                        <input type="number" id="genQuestionCount" min="1" max="5" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionCount} onChange={(e) => setGenerateQuestionCount(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))} disabled={isGeneratingQuestions || isApprovingQuestions} />
                     </div>
                     <div>
                         <label htmlFor="genQuestionDifficulty" className="block text-sm font-medium text-gray-700 mb-2">Difficulty:</label>
-                        <select id="genQuestionDifficulty" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionDifficulty} onChange={(e) => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions}>
+                        <select id="genQuestionDifficulty" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionDifficulty} onChange={(e) => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
                             <option value="easy">Easy</option>
                             <option value="medium">Medium</option>
                             <option value="hard">Hard</option>
@@ -1475,21 +1515,13 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     </div>
                     <div>
                         <label htmlFor="genQuestionType" className="block text-sm font-medium text-gray-700 mb-2">Type (Optional):</label>
-                        <input type="text" id="genQuestionType" placeholder="e.g., algebra, grammar, main_idea" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionType} onChange={(e) => setGenerateQuestionType(e.target.value)} disabled={isGeneratingQuestions} />
+                        <input type="text" id="genQuestionType" placeholder="e.g., algebra, grammar" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionType} onChange={(e) => setGenerateQuestionType(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions} />
                     </div>
                 </div>
-                {generateQuestionSubject === 'reading' && (
-                    <div className="mb-4">
-                        <label htmlFor="genQuestionPassageId" className="block text-sm font-medium text-gray-700 mb-2">Passage ID (for Reading Questions):</label>
-                        <input type="text" id="genQuestionPassageId" placeholder="Paste passage ID for context" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionPassageId} onChange={(e) => setGenerateQuestionPassageId(e.target.value)} disabled={isGeneratingQuestions} />
-                    </div>
-                )}
-                <button onClick={handleGenerateQuestions} disabled={isGeneratingQuestions} className="mt-4 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full">
-                    {isGeneratingQuestions ? <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Generate & Save Questions'}
+                <button onClick={handleGenerateQuestions} disabled={isGeneratingQuestions || isApprovingQuestions} className="mt-4 bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors duration-200 shadow-md flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed w-full">
+                    {isGeneratingQuestions ? <svg className="animate-spin h-5 w-5 text-white mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> : 'Generate Questions for Review'}
                 </button>
                 
-                {/* Note: This section for reviewing generated questions is for display.
-                    The current backend saves them immediately. A review step would require backend changes. */}
                 {questionsForReview.length > 0 && (
                     <div className="mt-6 p-4 bg-teal-100 rounded-lg border border-teal-200 space-y-4">
                         <h4 className="text-lg font-semibold text-gray-800 mb-2">Review Generated Questions:</h4>
@@ -1509,11 +1541,19 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                                 <div className="mt-3 pt-3 border-t border-teal-100 text-sm space-y-1">
                                     <p><strong className="font-semibold text-green-700">Correct Answer:</strong> {q.correctAnswer}</p>
                                     <p><strong className="font-semibold text-gray-600">Explanation:</strong> {q.explanation}</p>
-                                    {q.passageId && <p className="text-gray-500 text-xs mt-1">Linked Passage ID: {q.passageId}</p>}
                                 </div>
                             </div>
                         ))}
-                        {/* No save button here as the current backend saves automatically */}
+                        <div className="flex space-x-4 mt-4">
+                            <button onClick={handleApproveQuestions} disabled={isApprovingQuestions} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
+                                <ThumbsUp className="w-4 h-4 mr-2" />
+                                {isApprovingQuestions ? 'Saving...' : 'Approve & Save'}
+                            </button>
+                             <button onClick={handleRejectQuestions} disabled={isApprovingQuestions} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm shadow-md flex items-center justify-center disabled:opacity-50">
+                                <ThumbsDown className="w-4 h-4 mr-2" />
+                                Reject
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
