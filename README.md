@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# sat-tutor-app
-writing the sat tutor agent
-=======
 SAT Tutor Web Application
 This project is an SAT preparation web application designed to help students study and prepare for the SAT exam with the aid of AI-powered tools. It features a modern, responsive user interface built with React and a robust Node.js backend that handles AI model interactions and will support database operations in the future.
 ✨ Features
@@ -115,4 +111,3 @@ Dynamic Content: Populate study modules and practice tests with real SAT content
 Advanced Progress Tracking: Integrate charting libraries to display detailed and interactive progress graphs.
 Personalized Study Paths: Utilize AI to recommend tailored study plans based on individual student performance and weaknesses.
 More AI Tools: Develop additional AI features like an AI essay grader or personalized question generation.
->>>>>>> 6d8bc14 (refactoring the backend code)
