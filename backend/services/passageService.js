@@ -7,7 +7,7 @@ const { isUserAdmin } = require('./authService'); // For admin check
  * Adds a generated SAT passage to Firestore.
  * @param {object} passageData - Object containing passage details (title, text, genre, wordCount).
  * @param {string} createdByEmail - Email of the admin user adding the passage.
- * @returns {object} Message and new passage ID.
+ * @returns {object} Message, new passage ID, and the full passage data.
  */
 const addSatPassage = async (passageData, createdByEmail) => {
     const isAdmin = await isUserAdmin(createdByEmail);
@@ -24,7 +24,7 @@ const addSatPassage = async (passageData, createdByEmail) => {
         createdBy: createdByEmail
     };
     const docRef = await db.collection('sat_passages').add(dataToSave);
-    return { message: 'Passage added successfully.', passageId: docRef.id };
+    return { message: 'Passage added successfully.', passageId: docRef.id, passageData: { id: docRef.id, ...dataToSave } }; // Return full data
 };
 
 /**
@@ -33,7 +33,7 @@ const addSatPassage = async (passageData, createdByEmail) => {
  * @param {number} wordCount - The approximate word count.
  * @param {string} topic - Optional topic.
  * @param {string} adminEmail - Email of the admin user requesting generation.
- * @returns {object} Message and newly generated passage data.
+ * @returns {object} Message, new passage ID, and the full generated passage data.
  */
 const generateAndSaveSatPassage = async (genre, wordCount, topic, adminEmail) => {
     const isAdmin = await isUserAdmin(adminEmail);
@@ -43,18 +43,29 @@ const generateAndSaveSatPassage = async (genre, wordCount, topic, adminEmail) =>
 
     const generatedPassage = await generateSatPassage(genre, wordCount, topic);
     const result = await addSatPassage(generatedPassage, adminEmail); // Save the generated passage
-    return result;
+    return result; // result now includes passageData
 };
 
 /**
  * Fetches SAT passages from Firestore.
  * @param {string} [genre] - Optional filter by genre.
+ * @param {string} [passageId] - Optional filter by specific passage ID.
  * @param {number} [count=1] - Number of passages to fetch.
  * @returns {Array} Array of passages.
  */
-const fetchSatPassages = async (genre = null, count = 1) => {
+const fetchSatPassages = async (genre = null, count = 1, passageId = null) => {
     let query = db.collection('sat_passages');
 
+    if (passageId) { // Fetch by specific ID if provided
+        const doc = await query.doc(passageId).get();
+        if (doc.exists) {
+            return { passages: [{ id: doc.id, ...doc.data() }] };
+        } else {
+            return { passages: [] };
+        }
+    }
+
+    // Otherwise, apply filters and limit
     if (genre) {
         query = query.where('genre', '==', genre.toLowerCase());
     }
@@ -63,7 +74,7 @@ const fetchSatPassages = async (genre = null, count = 1) => {
     if (!isNaN(limitCount) && limitCount > 0) {
         query = query.limit(limitCount);
     } else {
-        query = query.limit(1); // Default to 1 passage
+        query = query.limit(1); // Default to 1 passage if count is invalid
     }
 
     const snapshot = await query.get();
@@ -78,6 +89,7 @@ const fetchSatPassages = async (genre = null, count = 1) => {
 
     return { passages };
 };
+
 
 module.exports = {
     addSatPassage,

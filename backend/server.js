@@ -1,4 +1,4 @@
-// server.js (Refactored Main Entry Point)
+// backend/server.js (Refactored Main Entry Point)
 
 const express = require('express');
 const cors = require('cors');
@@ -9,7 +9,7 @@ const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const testResultRoutes = require('./routes/testResultRoutes');
-const passageRoutes = require('./routes/passageRoutes'); // NEW: Import passage routes
+const passageRoutes = require('./routes/passageRoutes'); // 确保这个导入是正确的
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -19,11 +19,12 @@ app.use(cors());
 app.use(express.json());
 
 // --- Use Route Modules ---
+// 确保所有路由都正确挂载，并且路径没有冲突
 app.use('/api', authRoutes);
 app.use('/api', aiRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/test_results', testResultRoutes);
-app.use('/api/passages', passageRoutes); 
+app.use('/api/passages', passageRoutes); // 再次确认这里的挂载路径和变量名
 
 // Handle 404 - Not Found (important to place after all valid routes)
 app.use((req, res, next) => {
@@ -41,12 +42,3 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Backend server listening at http://localhost:${port}`);
 });
-
-
-
-
-
-
-
-
-
