@@ -602,6 +602,7 @@ function PracticeTests({ API_BASE_URL, userToken }) {
                 <TestCard title="Full-Length Practice Test" description="Simulate the real SAT exam experience, covering all sections." onStart={() => startTest('full')} />
                 <TestCard title="Math Section Test" description="Focus on practicing and improving your math skills." onStart={() => startTest('math')} />
                 <TestCard title="Reading Section Test" description="Practice reading comprehension and passage analysis." onStart={() => startTest('reading')} />
+                <TestCard title="Writing & Language Test" description="Improve your grammar and writing skills with a dedicated test." onStart={() => startTest('writing')} />
             </div>
         </div>
     );
@@ -993,7 +994,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
             <h2 className="text-3xl font-bold text-gray-800 mb-6 flex items-center">
                 <PlusCircle className="w-8 h-8 mr-3" /> Admin Content Generation Tools
             </h2>
-            <p className="text-gray-600 mb-8">Generate and add new SAT passages or questions to the database using AI.</p>
+             <p className="text-gray-600 mb-8">Generate and add new SAT passages or questions to the database using AI.</p>
             
             {adminMessage.text && (
                 <div className={`p-4 mb-6 rounded-lg text-center ${
@@ -1004,7 +1005,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     {adminMessage.text}
                 </div>
             )}
-
+            
             <div className="p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-200">
                 <h3 className="text-2xl font-semibold text-purple-800 mb-4">Generate Passage & Linked Questions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

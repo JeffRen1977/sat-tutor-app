@@ -2,14 +2,13 @@
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
-// Correctly import the service functions
-const { addSatPassage, generatePassageForReview, fetchSatPassages, approvePassageAndCreateQuestions } = require('../services/passageService'); 
+const { addSatPassage, generatePassageForReview, approvePassageAndCreateQuestions, fetchSatPassages } = require('../services/passageService'); 
 const { isUserAdmin } = require('../services/authService');
 
-router.use(authenticateToken); // All passage routes are protected
+router.use(authenticateToken);
 
 /**
- * Endpoint: Adds a new SAT passage to Firestore directly. This is called AFTER review and approval.
+ * Endpoint: Adds a new SAT passage to Firestore directly.
  * Requires admin authentication.
  * Body: { title, text, genre, wordCount }
  */
@@ -36,30 +35,39 @@ router.post('/add', async (req, res) => {
     }
 });
 
-
 /**
  * Endpoint: Generate an SAT passage using AI FOR REVIEW.
- * This does NOT save it to the database.
- * Requires admin authentication.
- * Body: { genre, wordCount, topic (optional) }
  */
 router.post('/generate', async (req, res) => {
+    // --- DEBUG MESSAGE ---
+    console.log("--- Received request at POST /api/passages/generate ---");
+    console.log("Request Body:", req.body);
+
     const { genre, wordCount, topic } = req.body;
     const userEmail = req.user.email;
 
     if (!genre || !wordCount) {
+        // --- DEBUG MESSAGE ---
+        console.error("Validation Error: Genre or wordCount missing.");
         return res.status(400).json({ message: 'Genre and wordCount are required for passage generation.' });
     }
 
     try {
-        // Call the service function that only generates the passage for review
+        // --- DEBUG MESSAGE ---
+        console.log(`Calling generatePassageForReview service for user: ${userEmail}`);
         const result = await generatePassageForReview(genre, wordCount, topic, userEmail);
         
-        // The service now returns { message, passageData }, which we can send to the frontend
+        // --- DEBUG MESSAGE ---
+        console.log("Service call successful. Sending response to client.");
+        console.log("Generated Passage Title:", result?.passageData?.title);
+
         res.status(200).json(result);
         
     } catch (error) {
-        console.error('Error in /api/passages/generate route:', error);
+        // --- DEBUG MESSAGE ---
+        console.error('--- ERROR in /api/passages/generate route ---');
+        console.error(error); // Log the full error object
+
         if (error.message.includes('Only administrators can')) {
             return res.status(403).json({ message: error.message });
         }
@@ -68,9 +76,7 @@ router.post('/generate', async (req, res) => {
 });
 
 /**
- * NEW Endpoint: Approve a passage, save it, generate questions, and save them.
- * Requires admin authentication.
- * Body: { title, text, genre, wordCount } (the full passage object)
+ * Endpoint: Approve a passage, save it, generate questions, and save them.
  */
 router.post('/approve-and-generate-questions', async (req, res) => {
     const passageData = req.body;
@@ -92,11 +98,8 @@ router.post('/approve-and-generate-questions', async (req, res) => {
     }
 });
 
-
 /**
  * Endpoint: Fetch SAT passages from the database.
- * Requires authentication.
- * Query: { genre (optional), count (optional, default 1), passageId (optional) }
  */
 router.get('/fetch', async (req, res) => {
     const { genre, count, passageId } = req.query;

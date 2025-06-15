@@ -1,14 +1,16 @@
 // backend/routes/questionRoutes.js
 const express = require('express');
 const router = express.Router();
-const authenticateToken = require('../middleware/authMiddleware'); // Import auth middleware
-const { addSatQuestion, fetchSatQuestions } = require('../services/questionService'); // Import question service functions
-const { generateAndFormatSatQuestions } = require('../services/geminiService'); // Import AI generation
-const { isUserAdmin } = require('../services/authService'); // Import admin check
+const authenticateToken = require('../middleware/authMiddleware');
+const { addSatQuestion, fetchSatQuestions } = require('../services/questionService');
+const { generateAndFormatSatQuestions } = require('../services/geminiService');
+const { isUserAdmin } = require('../services/authService');
 
-router.use(authenticateToken); // All question routes are protected
+router.use(authenticateToken);
 
-// Endpoint to add a single new SAT question to Firestore.
+/**
+ * Endpoint: Adds a single new SAT question to Firestore.
+ */
 router.post('/add', async (req, res) => {
     const questionData = req.body;
     const userEmail = req.user.email;
@@ -25,7 +27,9 @@ router.post('/add', async (req, res) => {
     }
 });
 
-// NEW Endpoint: Add a batch of questions after admin approval.
+/**
+ * Endpoint: Adds a batch of questions after admin approval.
+ */
 router.post('/add-batch', async (req, res) => {
     const { questions } = req.body;
     const userEmail = req.user.email;
@@ -58,7 +62,9 @@ router.post('/add-batch', async (req, res) => {
     }
 });
 
-// Endpoint to fetch SAT questions from Firestore.
+/**
+ * Endpoint: Fetches SAT questions from Firestore.
+ */
 router.get('/fetch', async (req, res) => {
     const { subject, count = '1', difficulty, type, passageId } = req.query;
 
@@ -79,46 +85,49 @@ router.get('/fetch', async (req, res) => {
 });
 
 /**
- * UPDATED Endpoint: Generate SAT questions using AI for REVIEW.
- * This does NOT save them to the database.
- * Body: { subject, count, difficulty, type (optional) }
+ * Endpoint: Generate SAT questions using AI for REVIEW.
  */
 router.post('/generate', async (req, res) => {
-    // **FIXED**: Correctly destructure `passageId` which might be null or undefined
+    // --- DEBUG MESSAGE ---
+    console.log("--- Received request at POST /api/questions/generate ---");
+    console.log("Request Body:", req.body);
+    
     const { subject, count, difficulty, type, passageId = null } = req.body;
     const userEmail = req.user.email;
 
     if (!subject || !count || !difficulty) {
+        // --- DEBUG MESSAGE ---
+        console.error("Validation Error: Subject, count, or difficulty missing.");
         return res.status(400).json({ message: 'Subject, count, and difficulty are required for generation.' });
     }
     
     try {
-        const isAdmin = await isUserAdmin(userEmail);
-        if (!isAdmin) {
-            return res.status(403).json({ message: 'Only administrators can generate questions.' });
-        }
-
-        // We only generate the questions and return them for review.
-        // **FIXED**: Ensure passageId is passed correctly (it will be null for standalone questions)
+        // --- DEBUG MESSAGE ---
+        console.log(`Calling generateAndFormatSatQuestions service for user: ${userEmail}`);
         const generatedQuestions = await generateAndFormatSatQuestions(subject, count, difficulty, type, null, passageId);
 
         if (!generatedQuestions || generatedQuestions.length === 0) {
+            // --- DEBUG MESSAGE ---
+            console.warn("AI service returned no questions.");
             return res.status(404).json({ message: 'AI failed to generate questions, or generated an empty list.' });
         }
         
-        // Return the generated questions for the admin to review on the frontend.
+        // --- DEBUG MESSAGE ---
+        console.log(`Service call successful. Returning ${generatedQuestions.length} questions for review.`);
+
         res.status(200).json({
             message: `Generated ${generatedQuestions.length} questions for review.`,
             questionsForReview: generatedQuestions
         });
 
     } catch (error) {
-        console.error('Error in /api/questions/generate route:', error);
+        // --- DEBUG MESSAGE ---
+        console.error('--- ERROR in /api/questions/generate route ---');
+        console.error(error); // Log the full error object
+
         res.status(500).json({ message: 'Failed to generate questions.', details: error.message });
     }
 });
 
 
 module.exports = router;
-
-

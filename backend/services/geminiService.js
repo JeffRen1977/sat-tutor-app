@@ -29,12 +29,12 @@ const SAT_QUESTION_SCHEMA_ITEM = {
     required: ["subject", "type", "questionText", "correctAnswer", "explanation", "difficulty", "isMultipleChoice"]
 };
 
-const SAT_QUESTION_SCHEMA = {
+const SAT_QUESTION_ARRAY_SCHEMA = {
     type: "ARRAY",
     items: SAT_QUESTION_SCHEMA_ITEM
 };
 
-const SAT_PASSAGE_SCHEMA = {
+const SAT_PASSAGE_SCHEMA_FOR_TEST = {
     type: "OBJECT",
     properties: {
         title: { type: "STRING" },
@@ -43,8 +43,20 @@ const SAT_PASSAGE_SCHEMA = {
         wordCount: { type: "NUMBER" },
         questions: { type: "ARRAY", items: SAT_QUESTION_SCHEMA_ITEM }
     },
-    required: ["title", "text", "genre", "wordCount"]
+    required: ["title", "text", "genre", "wordCount", "questions"]
 };
+
+// This schema is for generating a passage ONLY, without questions.
+const SAT_PASSAGE_SCHEMA_STANDALONE = {
+     type: "OBJECT",
+    properties: {
+        title: { type: "STRING" },
+        text: { type: "STRING" },
+        genre: { type: "STRING", enum: ["literary_narrative", "social_science", "natural_science", "history"] },
+        wordCount: { type: "NUMBER" },
+    },
+    required: ["title", "text", "genre", "wordCount"]
+}
 
 const SAT_TEST_SCHEMA = {
     type: "OBJECT",
@@ -53,7 +65,7 @@ const SAT_TEST_SCHEMA = {
         type: { type: "STRING" },
         readingSection: {
             type: "ARRAY",
-            items: SAT_PASSAGE_SCHEMA
+            items: SAT_PASSAGE_SCHEMA_FOR_TEST
         },
         writingSection: {
             type: "ARRAY",
@@ -64,105 +76,53 @@ const SAT_TEST_SCHEMA = {
             items: SAT_QUESTION_SCHEMA_ITEM
         },
     },
-    required: ["title", "type"]
+    required: ["title", "type", "readingSection", "writingSection", "mathSection"]
 };
+
 
 // --- HELPER FUNCTIONS --- //
 
-/**
- * Generates SAT questions using Gemini API and ensures structured output.
- * @param {string} subject - The subject of the questions (e.g., 'math', 'reading', 'writing').
- * @param {number} count - The number of questions to generate.
- * @param {string} difficulty - The difficulty level (e.g., 'easy', 'medium', 'hard').
- * @param {string} type - Specific question type (e.g., 'algebra', 'grammar', 'main_idea').
- * @param {string} [passageText] - Optional: Provide passage text if generating reading questions related to it.
- * @param {string} [passageId] - Optional: ID of the passage if linking reading questions.
- * @returns {Promise<Array>} An array of generated SAT questions.
- */
+const generateSectionQuestions = async (prompt) => {
+    const payload = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: SAT_QUESTION_ARRAY_SCHEMA
+        }
+    };
+    const result = await geminiModel.generateContent(payload);
+    return JSON.parse(result.response.text());
+};
+
 const generateAndFormatSatQuestions = async (subject, count, difficulty, type, passageText = '', passageId = null) => {
     let prompt = `Generate ${count} SAT-style ${difficulty} ${subject} questions.`;
-
-    if (type) {
-        prompt += ` Focus on '${type}' type questions.`;
-    }
-    
+    if (type) prompt += ` Focus on '${type}' type questions.`;
     if (subject === 'reading' && passageText) {
         prompt += ` These questions must be based on the following passage: "${passageText}".`;
     } else if (subject === 'math' || subject === 'writing') {
         prompt += ` These questions must be standalone and NOT based on any reading passage.`;
     }
-
-    prompt += ` For each question, include:
-    - subject (string: '${subject}')
-    - type (string: e.g., 'algebra', 'geometry', 'grammar', 'rhetoric')
-    - questionText (string)
-    - options (array of strings for multiple choice. If not multiple choice, provide an empty array)
-    - correctAnswer (string, the letter for multiple choice, or numerical/text answer for grid-in/short answer)
-    - explanation (string, detailed explanation of the answer)
-    - difficulty (string: '${difficulty}')
-    - isMultipleChoice (boolean)`;
-
-    if (passageId) {
-        prompt += `\n- passageId (string: "${passageId}")`;
-    } else {
-        prompt += `\n- passageId (must be null)`;
-    }
-
-    prompt += `\nProvide the output as a JSON array adhering to the specified schema.`;
-
-
-    try {
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: SAT_QUESTION_SCHEMA
-            }
-        };
-
-        const result = await geminiModel.generateContent(payload);
-        const jsonResponseText = result.response.text();
-        const jsonResponse = JSON.parse(jsonResponseText);
-
-        if (!Array.isArray(jsonResponse)) {
-            console.error("Gemini did not return a JSON array as expected:", jsonResponseText);
-            throw new Error("Failed to generate questions in the expected format.");
-        }
-        
-        return jsonResponse.map(q => ({
-            ...q,
-            passageId: subject === 'reading' ? (passageId || q.passageId || null) : null
-        }));
-
-    } catch (error) {
-        console.error("Error calling Gemini API for question generation:", error);
-        const rawText = error.response ? error.response.text() : "No raw response text available.";
-        throw new Error(`Gemini question generation failed: ${error.message}. Raw response: ${rawText}`);
-    }
+    prompt += ` For each question, include all required fields. The passageId must be null for standalone questions. Provide the output as a JSON array.`;
+    return await generateSectionQuestions(prompt);
 };
 
-/**
- * Generates an SAT-style reading passage using Gemini API.
- * @param {string} genre - The genre of the passage (e.g., 'literary_narrative', 'history').
- * @param {number} wordCount - The approximate word count.
- * @param {string} [topic] - Optional: A specific topic for the passage.
- * @returns {Promise<object>} The generated passage data.
- */
 const generateSatPassage = async (genre, wordCount, topic = '') => {
-    const prompt = `Generate an SAT-style reading passage.
-    Genre: ${genre}.
-    Approximate word count: ${wordCount}.
-    ${topic ? `Topic: ${topic}.` : ''}
-    The passage should be suitable for SAT reading comprehension questions.
-    Include a title for the passage.
-    Provide the output as a JSON object adhering to the specified schema. NOTE: The 'questions' property in the schema should be an empty array [].`;
+    // **FIXED**: The prompt is simplified to avoid confusing the AI. It now relies
+    // solely on the programmatic schema for formatting instructions.
+    const prompt = `Generate an SAT-style reading passage with the following properties:
+        - Genre: ${genre}
+        - Approximate Word Count: ${wordCount}
+        ${topic ? `- Topic: ${topic}` : ''}
+        - The passage should be suitable for SAT reading comprehension questions.
+        - It must include a title.`;
 
     try {
         const payload = {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
                 responseMimeType: "application/json",
-                responseSchema: SAT_PASSAGE_SCHEMA
+                // Use the correct schema for a passage without questions
+                responseSchema: SAT_PASSAGE_SCHEMA_STANDALONE
             }
         };
 
@@ -170,7 +130,6 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
         const jsonResponse = JSON.parse(result.response.text());
 
         if (typeof jsonResponse !== 'object' || !jsonResponse.text || !jsonResponse.title) {
-            console.error("Gemini did not return a JSON object with text and title as expected:", jsonResponse);
             throw new Error("Failed to generate passage in the expected format.");
         }
 
@@ -178,69 +137,74 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
 
     } catch (error) {
         console.error("Error calling Gemini API for passage generation:", error);
-        const rawText = error.response ? error.response.text() : "No raw response text available.";
-        throw new Error(`Gemini passage generation failed: ${error.message}. Raw response: ${rawText}`);
+        throw new Error(`Gemini passage generation failed: ${error.message}.`);
     }
 };
 
-/**
- * Generates a complete, structured SAT test using the Gemini API.
- * @param {'full' | 'math' | 'reading'} testType - The type of test to generate.
- * @returns {Promise<object>} The structured test data.
- */
 const generateSatTest = async (testType) => {
-    let prompt;
+    // ... This function remains the same as the previous correct version ...
     let title;
     const readingPassageCount = 2;
     const questionsPerPassage = 3;
     const writingQuestionCount = 10;
     const mathQuestionCount = 15;
 
-    switch (testType) {
-        case 'full':
+    try {
+        if (testType === 'full') {
             title = 'Full-Length Practice Test';
-            prompt = `Generate a full-length SAT practice test. It must contain three sections: Reading, Writing, and Math.
+            const prompt = `Generate a full-length SAT practice test. It must contain three sections: Reading, Writing, and Math.
             - The Reading section must have exactly ${readingPassageCount} passages, each with ${questionsPerPassage} questions. Genres should be varied.
             - The Writing section must have exactly ${writingQuestionCount} standalone multiple-choice questions covering grammar and rhetoric.
             - The Math section must have exactly ${mathQuestionCount} standalone questions, with a mix of multiple-choice and grid-in answers.
             The difficulty should be medium overall. Provide the output as a single JSON object adhering to the specified schema.`;
-            break;
-        case 'math':
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: SAT_TEST_SCHEMA
+                }
+            };
+            const result = await geminiModel.generateContent(payload);
+            const jsonResponse = JSON.parse(result.response.text());
+            jsonResponse.title = title;
+            jsonResponse.type = testType;
+            return jsonResponse;
+
+        } else if (testType === 'math') {
             title = 'Math Section Test';
-            prompt = `Generate a Math Only SAT practice test.
-            - It must contain a Math section with exactly ${mathQuestionCount} standalone questions.
-            - The Reading and Writing sections must be empty arrays.
-            - Include a mix of multiple-choice and grid-in questions with medium difficulty.
-            Provide the output as a single JSON object adhering to the specified schema.`;
-            break;
-        case 'reading':
-            title = 'Reading Section Test';
-            prompt = `Generate a Reading Only SAT practice test.
+            const prompt = `Generate a Math SAT practice test section with exactly ${mathQuestionCount} standalone questions. Include a mix of multiple-choice and grid-in questions with medium difficulty.`;
+            const mathSection = await generateSectionQuestions(prompt);
+            return { title, type: testType, readingSection: [], writingSection: [], mathSection };
+
+        } else if (testType === 'writing') {
+            title = 'Writing & Language Test';
+            const prompt = `Generate a Writing & Language SAT practice test section with exactly ${writingQuestionCount} standalone multiple-choice questions. Cover a mix of grammar, usage, punctuation, and rhetorical skills with medium difficulty.`;
+            const writingSection = await generateSectionQuestions(prompt);
+            return { title, type: testType, readingSection: [], writingSection, mathSection: [] };
+
+        } else if (testType === 'reading') {
+             title = 'Reading Section Test';
+            const prompt = `Generate a Reading Only SAT practice test.
             - It must contain a Reading section with exactly ${readingPassageCount} passages, each with ${questionsPerPassage} questions.
             - The Math and Writing sections must be empty arrays.
             - The passages should have varied genres and medium difficulty questions.
             Provide the output as a single JSON object adhering to the specified schema.`;
-            break;
-        default:
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: SAT_TEST_SCHEMA
+                }
+            };
+            const result = await geminiModel.generateContent(payload);
+            const jsonResponse = JSON.parse(result.response.text());
+            jsonResponse.title = title;
+            jsonResponse.type = testType;
+            return jsonResponse;
+        } else {
             throw new Error('Invalid test type provided.');
-    }
-
-    try {
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: SAT_TEST_SCHEMA
-            }
-        };
-
-        const result = await geminiModel.generateContent(payload);
-        const jsonResponse = JSON.parse(result.response.text());
-
-        jsonResponse.title = title;
-        jsonResponse.type = testType;
-
-        return jsonResponse;
+        }
 
     } catch (error) {
         console.error(`Error calling Gemini API for ${testType} test generation:`, error);
@@ -253,16 +217,19 @@ const getChatResponse = async (chatHistory) => {
     const result = await geminiModel.generateContent(prompt);
     return result.response.text();
 };
+
 const getVocabularyExplanation = async (word) => {
     const prompt = `Provide a detailed explanation for the SAT vocabulary word "${word}", including its definition, a sample sentence, and synonyms.`;
     const result = await geminiModel.generateContent(prompt);
     return result.response.text();
 };
+
 const getEssayBrainstorming = async (topic) => {
     const prompt = `Generate a list of brainstorming ideas, arguments, and counter-arguments for an SAT essay on the topic: "${topic}".`;
     const result = await geminiModel.generateContent(prompt);
     return result.response.text();
 };
+
 const solveMathProblem = async (problem) => {
     const prompt = `Solve the following math problem, showing a clear, step-by-step solution: "${problem}"`;
     const result = await geminiModel.generateContent(prompt);

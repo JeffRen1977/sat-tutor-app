@@ -9,12 +9,12 @@ router.use(authenticateToken);
 
 /**
  * Endpoint: Generates a new SAT test on-demand.
- * Body: { type: 'full' | 'math' | 'reading' }
+ * Body: { type: 'full' | 'math' | 'reading' | 'writing' }
  */
 router.post('/generate', async (req, res) => {
     const { type } = req.body;
 
-    if (!['full', 'math', 'reading'].includes(type)) {
+    if (!['full', 'math', 'reading', 'writing'].includes(type)) {
         return res.status(400).json({ message: 'Invalid test type specified.' });
     }
 
@@ -28,3 +28,4 @@ router.post('/generate', async (req, res) => {
 });
 
 module.exports = router;
+
