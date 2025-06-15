@@ -54,7 +54,7 @@ The application is split into several key modules, providing a comprehensive stu
 
 The project is organized into a standard monorepo structure with separate directories for the frontend and backend.
 
-/├── backend/│   ├── config/│   │   ├── firebase.js│   │   └── jwt.js│   ├── middleware/│   │   └── authMiddleware.js│   ├── routes/│   │   ├── aiRoutes.js│   │   ├── authRoutes.js│   │   ├── passageRoutes.js│   │   ├── questionRoutes.js│   │   ├── practiceHistoryRoutes.js│   │   └── testRoutes.js│   ├── services/│   │   ├── authService.js│   │   ├── geminiService.js│   │   ├── passageService.js│   │   ├── questionService.js│   │   └── testResultService.js│   ├── index.js│   ├── package.json│   └── .env.example│└── frontend/├── src/│   └── App.js  (Contains all React components)└── ...
+/├── backend/│   ├── config/│   │   ├── firebase.js│   │   └── jwt.js│   ├── middleware/│   │   └── authMiddleware.js│   ├── routes/│   │   ├── aiRoutes.js│   │   ├── authRoutes.js│   │   ├── passageRoutes.js│   │   ├── practiceHistoryRoutes.js│   │   ├── questionRoutes.js│   │   └── testRoutes.js│   ├── services/│   │   ├── authService.js│   │   ├── geminiService.js│   │   ├── passageService.js│   │   ├── questionService.js│   │   └── testResultService.js│   ├── .env.example│   ├── index.js│   └── package.json│└── frontend/└── src/└── App.js
 ---
 
 ## Setup and Installation
