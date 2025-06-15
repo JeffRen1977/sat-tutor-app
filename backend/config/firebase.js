@@ -4,7 +4,7 @@ const admin = require('firebase-admin');
 // IMPORTANT: Ensure 'firebase-service-account.json' is in the backend directory.
 // This file should NEVER be committed to version control.
 try {
-    const serviceAccount = require('../sat-tutor-app-f4de0-firebase-adminsdk.json'); // Path relative to this config file
+    const serviceAccount = require('../sat-tutor-app-f4de0-firebase-adminsdk_updated.json'); // Path relative to this config file
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });

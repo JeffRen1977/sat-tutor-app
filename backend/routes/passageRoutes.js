@@ -1,166 +1,120 @@
-// backend/routes/passageRoutes.js
+// backend/routes/questionRoutes.js
 const express = require('express');
 const router = express.Router();
-const authenticateToken = require('../middleware/authMiddleware');
-const { addSatPassage, generateAndSaveSatPassage, fetchSatPassages } = require('../services/passageService'); // 确保导入了 addSatPassage
-const { generateAndFormatSatQuestions } = require('../services/geminiService'); // 确保导入路径正确
-const { addSatQuestion } = require('../services/questionService'); // 确保导入了 addSatQuestion
-const { isUserAdmin } = require('../services/authService'); // 确保导入了 isUserAdmin
+const authenticateToken = require('../middleware/authMiddleware'); // Import auth middleware
+const { addSatQuestion, fetchSatQuestions } = require('../services/questionService'); // Import question service functions
+const { generateAndFormatSatQuestions } = require('../services/geminiService'); // Import AI generation
+const { isUserAdmin } = require('../services/authService'); // Import admin check
 
-router.use(authenticateToken); // All passage routes are protected
+router.use(authenticateToken); // All question routes are protected
 
-/**
- * Endpoint: Adds a new SAT passage to Firestore directly.
- * Requires admin authentication.
- * Body: { title, text, genre, wordCount }
- */
-router.post('/add', async (req, res) => { // 这是前端调用保存的接口
-    const { title, text, genre, wordCount } = req.body;
-    const userEmail = req.user.email; // Email from authenticated JWT
-
-    if (!title || !text || !genre || !wordCount) {
-        return res.status(400).json({ message: 'Missing required passage fields (title, text, genre, wordCount).' });
-    }
+// Endpoint to add a single new SAT question to Firestore.
+router.post('/add', async (req, res) => {
+    const questionData = req.body;
+    const userEmail = req.user.email;
 
     try {
-        const result = await addSatPassage( // 调用 service 层的方法
-            { title, text, genre, wordCount },
-            userEmail
-        );
+        const result = await addSatQuestion(questionData, userEmail);
         res.status(201).json(result);
     } catch (error) {
-        console.error('Error in /api/passages/add route:', error);
+        console.error('Error in /api/questions/add route:', error);
         if (error.message.includes('Only administrators can add')) {
             return res.status(403).json({ message: error.message });
         }
-        res.status(500).json({ message: 'Failed to add passage.', details: error.message });
+        res.status(500).json({ message: 'Failed to add question.', details: error.message });
     }
 });
 
-
-/**
- * Endpoint: Generate an SAT passage using AI and save it to the database.
- * Requires admin authentication.
- * Body: { genre, wordCount, topic (optional) }
- */
-router.post('/generate', async (req, res) => { // 这是前端调用生成并审核的接口
-    const { genre, wordCount, topic } = req.body;
+// NEW Endpoint: Add a batch of questions after admin approval.
+router.post('/add-batch', async (req, res) => {
+    const { questions } = req.body;
     const userEmail = req.user.email;
 
-    if (!genre || !wordCount) {
-        return res.status(400).json({ message: 'Genre and wordCount are required for passage generation.' });
+    if (!Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({ message: 'A non-empty array of questions is required.' });
     }
 
     try {
         const isAdmin = await isUserAdmin(userEmail);
         if (!isAdmin) {
-            return res.status(403).json({ message: 'Forbidden: Only administrators can generate passages.' });
+            return res.status(403).json({ message: 'Only administrators can add questions.' });
         }
+        
+        const addPromises = questions.map(q => addSatQuestion(q, userEmail));
+        const results = await Promise.allSettled(addPromises);
+        
+        const successfulAdds = results.filter(r => r.status === 'fulfilled').length;
+        const failedAdds = results.length - successfulAdds;
 
-        const result = await generateAndSaveSatPassage(genre, wordCount, topic, userEmail);
-        // generateAndSaveSatPassage 已经保存到数据库了，这里直接返回生成的数据给前端审核
-        res.status(201).json({
-            message: "Passage generated for review.",
-            generatedPassage: result.passageData, // 返回完整的 passageData 供前端审核
-            passageId: result.passageId
+        res.status(201).json({ 
+            message: `Batch complete. Successfully saved ${successfulAdds} questions.`,
+            successful: successfulAdds,
+            failed: failedAdds
         });
+
     } catch (error) {
-        console.error('Error in /api/passages/generate route:', error);
-        res.status(500).json({ message: 'Failed to generate or save passage.', details: error.message });
+        console.error('Error in /api/questions/add-batch route:', error);
+        res.status(500).json({ message: 'Failed to add question batch.', details: error.message });
     }
 });
 
-
-/**
- * Endpoint: Fetch SAT passages from the database.
- * Requires authentication.
- * Query: { genre (optional), count (optional, default 1), passageId (optional) }
- */
+// Endpoint to fetch SAT questions from Firestore.
 router.get('/fetch', async (req, res) => {
-    const { genre, count, passageId } = req.query;
+    const { subject, count = '1', difficulty, type, passageId } = req.query;
+
+    if (!subject) {
+        return res.status(400).json({ message: 'Subject is required to fetch questions.' });
+    }
 
     try {
-        const result = await fetchSatPassages(genre, count, passageId);
-        if (result.passages.length === 0) {
-            return res.status(404).json({ message: 'No passages found matching the criteria.' });
+        const result = await fetchSatQuestions(subject, count, difficulty, type, passageId);
+        if (result.questions.length === 0) {
+            return res.status(404).json({ message: 'No questions found matching the criteria.' });
         }
         res.json(result);
     } catch (error) {
-        console.error('Error in /api/passages/fetch route:', error);
-        res.status(500).json({ message: 'Failed to fetch passages.', details: error.message });
+        console.error('Error in /api/questions/fetch route:', error);
+        res.status(500).json({ message: 'Failed to fetch questions.', details: error.message });
     }
 });
 
 /**
- * NEW Endpoint: Generate an SAT passage, then generate questions based on it, and save both.
- * Requires admin authentication.
- * Body: {
- * passage: { genre, wordCount, topic (optional) },
- * questions: { count, difficulty, type (optional) }
- * }
+ * UPDATED Endpoint: Generate SAT questions using AI for REVIEW.
+ * This does NOT save them to the database.
+ * Body: { subject, count, difficulty, type (optional) }
  */
-router.post('/generate-and-link-questions', async (req, res) => {
-    const { passage, questions: questionParams } = req.body;
+router.post('/generate', async (req, res) => {
+    const { subject, count, difficulty, type, passageId } = req.body;
     const userEmail = req.user.email;
 
-    if (!passage || !passage.genre || !passage.wordCount || !questionParams || !questionParams.count || !questionParams.difficulty) {
-        return res.status(400).json({ message: 'Missing required parameters for passage or questions generation.' });
+    if (!subject || !count || !difficulty) {
+        return res.status(400).json({ message: 'Subject, count, and difficulty are required for generation.' });
     }
-
+    
     try {
         const isAdmin = await isUserAdmin(userEmail);
         if (!isAdmin) {
-            return res.status(403).json({ message: 'Forbidden: Only administrators can generate and link passages with questions.' });
+            return res.status(403).json({ message: 'Only administrators can generate questions.' });
         }
 
-        // 1. Generate and Save the Passage
-        // This will now use the service, which also adds to DB
-        const passageResult = await generateAndSaveSatPassage(passage.genre, passage.wordCount, passage.topic, userEmail);
-        const newPassageId = passageResult.passageId;
-        const newPassageText = passageResult.passageData.text; // Get the full text for question generation
-
-        if (!newPassageId || !newPassageText) {
-            throw new Error('Failed to generate or save passage successfully for question linking.');
-        }
-
-        // 2. Generate Questions based on the new Passage
-        const generatedQuestions = await generateAndFormatSatQuestions(
-            questionParams.subject || 'reading', // Assume reading for passage-based questions
-            questionParams.count,
-            questionParams.difficulty,
-            questionParams.type,
-            newPassageText, // Pass the actual passage text as context
-            newPassageId // Link questions to the new passage ID
-        );
+        // We only generate the questions and return them for review.
+        const generatedQuestions = await generateAndFormatSatQuestions(subject, count, difficulty, type, null, passageId);
 
         if (!generatedQuestions || generatedQuestions.length === 0) {
-            return res.status(404).json({ message: 'AI failed to generate questions based on the passage.' });
+            return res.status(404).json({ message: 'AI failed to generate questions, or generated an empty list.' });
         }
-
-        // 3. Save the Generated Questions
-        const addQuestionPromises = generatedQuestions.map(q => addSatQuestion(q, userEmail));
-        const addQuestionResults = await Promise.allSettled(addQuestionPromises);
-
-        const successfulQuestionAdds = addQuestionResults.filter(p => p.status === 'fulfilled').map(p => p.value);
-        const failedQuestionAdds = addQuestionResults.filter(p => p.status === 'rejected');
-
-        console.log(`Successfully generated and added 1 passage and ${successfulQuestionAdds.length} questions.`);
-        if (failedQuestionAdds.length > 0) {
-            console.error(`Failed to add ${failedQuestionAdds.length} questions:`, failedAdds.map(p => p.reason));
-        }
-
+        
+        // Return the generated questions for the admin to review on the frontend.
         res.status(200).json({
-            message: `Successfully generated 1 passage (ID: ${newPassageId}) and ${successfulQuestionAdds.length} questions.`,
-            passageId: newPassageId,
-            successfulQuestions: successfulQuestionAdds.length,
-            failedQuestions: failedQuestionAdds.length,
-            generatedQuestionIds: successfulQuestionAdds.map(r => r.questionId || 'N/A')
+            message: `Generated ${generatedQuestions.length} questions for review.`,
+            questionsForReview: generatedQuestions
         });
 
     } catch (error) {
-        console.error('Error in /api/passages/generate-and-link-questions route:', error);
-        res.status(500).json({ message: 'Failed to generate passage and/or questions.', details: error.message });
+        console.error('Error in /api/questions/generate route:', error);
+        res.status(500).json({ message: 'Failed to generate questions.', details: error.message });
     }
 });
+
 
 module.exports = router;
