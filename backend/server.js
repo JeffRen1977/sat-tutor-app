@@ -14,7 +14,8 @@ const aiRoutes = require('./routes/aiRoutes');
 const passageRoutes = require('./routes/passageRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const testResultRoutes = require('./routes/testResultRoutes');
-const practiceHistoryRoutes = require('./routes/practiceHistoryRoutes'); // <-- IMPORT THE NEW ROUTES
+const practiceHistoryRoutes = require('./routes/practiceHistoryRoutes');
+const testRoutes = require('./routes/testRoutes'); // <-- NEW: Import test routes
 
 // --- INITIALIZATION --- //
 const app = express();
@@ -31,10 +32,11 @@ app.use(express.json()); // Enable parsing of JSON request bodies
 
 app.use('/api', authRoutes); // Mounts /register, /login
 app.use('/api', aiRoutes); // Mounts /chat, /vocabulary, /essay-brainstorm, /math-solver
-app.use('/api/passages', passageRoutes); // Mounts /passages/add, /passages/generate, etc.
-app.use('/api/questions', questionRoutes); // Mounts /questions/add, /questions/generate, etc.
-app.use('/api/test_results', testResultRoutes); // Mounts /test_results/save, /test_results/fetch
-app.use('/api/practice-history', practiceHistoryRoutes); // <-- USE THE NEW ROUTES
+app.use('/api/passages', passageRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/test_results', testResultRoutes);
+app.use('/api/practice-history', practiceHistoryRoutes);
+app.use('/api/tests', testRoutes); // <-- NEW: Mount the new router
 
 // --- ROOT ENDPOINT --- //
 app.get('/', (req, res) => {
