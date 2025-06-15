@@ -896,8 +896,13 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     topic: generatePassageTopic
                 })
             });
+            
+            if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(errorData.message || 'Failed to generate passage.');
+            }
+
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to generate passage.');
             setAdminMessage({ type: 'success', text: 'Passage generated for review.' });
             setPassageForReview(data.passageData);
         } catch (error) {
@@ -948,8 +953,11 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     type: generateQuestionType,
                 })
             });
+             if (!response.ok) {
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(errorData.message || 'Failed to generate questions.');
+            }
             const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to generate questions.');
             setAdminMessage({ type: 'success', text: data.message });
             setQuestionsForReview(data.questionsForReview);
         } catch (error) {
@@ -1066,7 +1074,7 @@ function AdminTools({ API_BASE_URL, userToken, userRole }) {
                     </div>
                     <div>
                         <label htmlFor="genQuestionDifficulty" className="block text-sm font-medium text-gray-700 mb-2">Difficulty:</label>
-                         <select id="genQuestionDifficulty" className="w-full p-2 border rounded-md" value={generateQuestionDifficulty} onChange={e => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
+                         <select id="genQuestionDifficulty" className="w-full p-2 border border-gray-300 rounded-md" value={generateQuestionDifficulty} onChange={e => setGenerateQuestionDifficulty(e.target.value)} disabled={isGeneratingQuestions || isApprovingQuestions}>
                             <option value="easy">Easy</option>
                             <option value="medium">Medium</option>
                             <option value="hard">Hard</option>
