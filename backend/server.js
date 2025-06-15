@@ -1,43 +1,50 @@
-// backend/server.js (Refactored Main Entry Point)
+// ================================================================= //
+//                  SAT TUTOR BACKEND SERVER (MAIN)                  //
+//          Node.js, Express - Modularized Structure               //
+// ================================================================= //
 
+// --- DEPENDENCIES --- //
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config(); // Load environment variables from .env file
 
-// Import route modules
+// --- ROUTE IMPORTS --- //
 const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const passageRoutes = require('./routes/passageRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const testResultRoutes = require('./routes/testResultRoutes');
-const passageRoutes = require('./routes/passageRoutes'); // 确保这个导入是正确的
+const practiceHistoryRoutes = require('./routes/practiceHistoryRoutes'); // <-- IMPORT THE NEW ROUTES
 
+// --- INITIALIZATION --- //
 const app = express();
-const port = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// --- CORE MIDDLEWARE --- //
+app.use(cors()); // Enable Cross-Origin Resource Sharing for all routes
+app.use(express.json()); // Enable parsing of JSON request bodies
 
-// --- Use Route Modules ---
-app.use('/api', authRoutes);
-app.use('/api', aiRoutes);
-app.use('/api/questions', questionRoutes);
-app.use('/api/test_results', testResultRoutes);
-app.use('/api/passages', passageRoutes); 
+// ================================================================= //
+//                          API ROUTES MOUNTING                      //
+//     Mounting modular routers to specific base paths.            //
+// ================================================================= //
 
-// Handle 404 - Not Found (important to place after all valid routes)
-app.use((req, res, next) => {
-    res.status(404).json({ message: "API endpoint not found." });
+app.use('/api', authRoutes); // Mounts /register, /login
+app.use('/api', aiRoutes); // Mounts /chat, /vocabulary, /essay-brainstorm, /math-solver
+app.use('/api/passages', passageRoutes); // Mounts /passages/add, /passages/generate, etc.
+app.use('/api/questions', questionRoutes); // Mounts /questions/add, /questions/generate, etc.
+app.use('/api/test_results', testResultRoutes); // Mounts /test_results/save, /test_results/fetch
+app.use('/api/practice-history', practiceHistoryRoutes); // <-- USE THE NEW ROUTES
+
+// --- ROOT ENDPOINT --- //
+app.get('/', (req, res) => {
+    res.send('SAT Tutor API is running!');
 });
 
-// Generic Error Handler (optional, for unhandled errors)
-app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).json({ message: "Something went wrong on the server.", details: err.message });
-});
+// ================================================================= //
+//                      START THE SERVER                             //
+// ================================================================= //
 
-
-// Start the server
-app.listen(port, () => {
-    console.log(`Backend server listening at http://localhost:${port}`);
+app.listen(PORT, () => {
+    console.log(`🚀 SAT Tutor backend server is running on http://localhost:${PORT}`);
 });
