@@ -50,13 +50,6 @@ The application is split into several key modules, providing a comprehensive stu
 
 ---
 
-## Project Structure
-
-The project is organized into a standard monorepo structure with separate directories for the frontend and backend.
-
-/├── backend/│   ├── config/│   │   ├── firebase.js│   │   └── jwt.js│   ├── middleware/│   │   └── authMiddleware.js│   ├── routes/│   │   ├── aiRoutes.js│   │   ├── authRoutes.js│   │   ├── passageRoutes.js│   │   ├── practiceHistoryRoutes.js│   │   ├── questionRoutes.js│   │   └── testRoutes.js│   ├── services/│   │   ├── authService.js│   │   ├── geminiService.js│   │   ├── passageService.js│   │   ├── questionService.js│   │   └── testResultService.js│   ├── .env.example│   ├── index.js│   └── package.json│└── frontend/└── src/└── App.js
----
-
 ## Setup and Installation
 
 ### Prerequisites
