@@ -355,14 +355,20 @@ function StudyModules({ API_BASE_URL, userToken }) {
     const [resultMessages, setResultMessages] = useState({});
     const [activeStudyView, setActiveStudyView] = useState('main');
 
-    const startReadingPractice = async () => {
-        setIsLoadingPassage(true);
+    const resetPracticeState = () => {
+        setIsLoadingPassage(false);
+        setIsLoadingQuestions(false);
         setPassageFetchError('');
+        setQuestionFetchError('');
         setFetchedPassage(null);
         setFetchedQuestions([]);
-        setQuestionFetchError('');
         setUserAnswers({});
         setResultMessages({});
+    };
+
+    const startReadingPractice = async () => {
+        resetPracticeState();
+        setIsLoadingPassage(true);
 
         try {
             const passageResponse = await fetch(`${API_BASE_URL}/passages/fetch?count=1`, {
@@ -391,6 +397,31 @@ function StudyModules({ API_BASE_URL, userToken }) {
         } finally {
             setIsLoadingPassage(false);
             setIsLoadingQuestions(false);
+        }
+    };
+    
+    const startStandalonePractice = async (subject) => {
+        resetPracticeState();
+        setIsLoadingQuestions(true);
+        
+        try {
+            const questionsResponse = await fetch(`${API_BASE_URL}/questions/fetch?subject=${subject}&count=5`, {
+                 headers: { 'Authorization': `Bearer ${userToken}` }
+            });
+            if (!questionsResponse.ok) {
+                const errorData = await questionsResponse.json();
+                throw new Error(errorData.message || `Failed to fetch ${subject} questions.`);
+            }
+            const questionsData = await questionsResponse.json();
+             if (!questionsData.questions || questionsData.questions.length === 0) {
+                throw new Error(`No ${subject} questions found in the database.`);
+            }
+            setFetchedQuestions(questionsData.questions);
+        } catch (error) {
+            console.error(`Error starting ${subject} practice session:`, error);
+            setQuestionFetchError(error.message);
+        } finally {
+             setIsLoadingQuestions(false);
         }
     };
 
@@ -455,12 +486,12 @@ function StudyModules({ API_BASE_URL, userToken }) {
             case 'reading-main':
                  return (
                     <div className="space-y-6">
-                        <button onClick={() => setActiveStudyView('main')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200 flex items-center">
+                        <button onClick={() => { setActiveStudyView('main'); resetPracticeState(); }} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200 flex items-center">
                             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Subjects
                         </button>
                         <h3 className="text-2xl font-semibold text-gray-800">Reading Practice</h3>
                         
-                        {(!fetchedPassage && !isLoadingPassage) && (
+                        {(!fetchedPassage && !isLoadingPassage && !passageFetchError) && (
                             <div className="text-center p-6 bg-yellow-50 rounded-lg shadow-inner border border-yellow-200">
                                 <p className="text-gray-600 mb-4">Start a new session to get a random passage and its questions.</p>
                                 <button
@@ -507,13 +538,43 @@ function StudyModules({ API_BASE_URL, userToken }) {
                 );
             case 'writing-main':
             case 'math-main':
+                const subject = activeStudyView === 'math-main' ? 'math' : 'writing';
+                const title = subject === 'math' ? 'Math Practice' : 'Writing & Language Practice';
+                const color = subject === 'math' ? 'blue' : 'red';
+                
                 return (
                     <div className="space-y-6">
-                         <button onClick={() => setActiveStudyView('main')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200 flex items-center">
+                        <button onClick={() => { setActiveStudyView('main'); resetPracticeState(); }} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200 flex items-center">
                             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Subjects
                         </button>
-                        <h3 className="text-2xl font-semibold text-gray-800">{activeStudyView === 'math-main' ? 'Math Practice' : 'Writing & Language Practice'}</h3>
-                        <p className="text-center text-gray-600 p-8 bg-gray-50 rounded-lg">Standalone practice questions for Math and Writing are coming soon!</p>
+                        <h3 className="text-2xl font-semibold text-gray-800">{title}</h3>
+                        
+                        {(fetchedQuestions.length === 0 && !isLoadingQuestions && !questionFetchError) && (
+                            <div className={`text-center p-6 bg-${color}-50 rounded-lg shadow-inner border border-${color}-200`}>
+                                <p className="text-gray-600 mb-4">Start a practice session to get a random set of {subject} questions.</p>
+                                <button
+                                    onClick={() => startStandalonePractice(subject)}
+                                    className={`bg-${color}-600 text-white px-6 py-3 rounded-lg hover:bg-${color}-700 transition-colors duration-200 shadow-md`}
+                                >
+                                    Start {title} Session ✨
+                                </button>
+                            </div>
+                        )}
+                        
+                        {isLoadingQuestions && <p className="text-gray-600 text-center mt-4">Loading questions...</p>}
+                        {questionFetchError && <p className="text-red-600 text-sm mt-2 text-center">{questionFetchError}</p>}
+                        {fetchedQuestions.length > 0 && renderFetchedQuestions()}
+                        
+                        {fetchedQuestions.length > 0 && (
+                             <div className="text-center mt-8">
+                                <button
+                                    onClick={() => startStandalonePractice(subject)}
+                                    className="bg-indigo-500 text-white px-6 py-3 rounded-lg hover:bg-indigo-600 transition-colors duration-200 shadow-md"
+                                >
+                                    Start a New Session
+                                </button>
+                            </div>
+                        )}
                     </div>
                 );
             default:
@@ -558,7 +619,7 @@ function StudyModules({ API_BASE_URL, userToken }) {
                         <button
                             onClick={() => savePracticeAttempt(q)}
                             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm shadow-md flex items-center disabled:opacity-50"
-                            disabled={resultMessages[q.id]?.type === 'loading'}
+                            disabled={!!resultMessages[q.id]}
                         >
                             {resultMessages[q.id]?.type === 'loading' ? 'Saving...' : 'Save Answer'}
                         </button>
