@@ -15,7 +15,9 @@ const passageRoutes = require('./routes/passageRoutes');
 const questionRoutes = require('./routes/questionRoutes');
 const testResultRoutes = require('./routes/testResultRoutes');
 const practiceHistoryRoutes = require('./routes/practiceHistoryRoutes');
-const testRoutes = require('./routes/testRoutes'); // <-- NEW: Import test routes
+const testRoutes = require('./routes/testRoutes'); 
+const recommendationRoutes = require('./routes/recommendationRoutes'); 
+
 
 // --- INITIALIZATION --- //
 const app = express();
@@ -36,7 +38,9 @@ app.use('/api/passages', passageRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/test_results', testResultRoutes);
 app.use('/api/practice-history', practiceHistoryRoutes);
-app.use('/api/tests', testRoutes); // <-- NEW: Mount the new router
+app.use('/api/tests', testRoutes); 
+app.use('/api/recommendations', recommendationRoutes);
+
 
 // --- ROOT ENDPOINT --- //
 app.get('/', (req, res) => {

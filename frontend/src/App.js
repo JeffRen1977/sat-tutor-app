@@ -755,10 +755,13 @@ function ProgressTracking({ API_BASE_URL, userToken }) {
                     'Authorization': `Bearer ${userToken}`
                 }
             });
-            const data = await response.json();
+            
             if (!response.ok) {
-                throw new Error(data.message || '生成学习计划失败。');
+                 const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                 throw new Error(errorData.message || '生成学习计划失败。');
             }
+
+            const data = await response.json();
             setStudyPlan(data);
         } catch (err) {
             console.error("生成学习计划时出错:", err);

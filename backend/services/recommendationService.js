@@ -23,14 +23,27 @@ const fetchUserHistory = async (userId) => {
  * @returns {Promise<object>} A promise that resolves to the study plan object.
  */
 const generateStudyPlan = async (userId) => {
+    // --- DEBUG ---
+    console.log(`[Recommendation Service] Starting study plan generation for user: ${userId}`);
+
     const history = await fetchUserHistory(userId);
 
+    // --- DEBUG ---
+    console.log(`[Recommendation Service] Found ${history.length} practice records for user.`);
+
     if (history.length < 5) { // Require a minimum amount of data for meaningful analysis
+        console.warn(`[Recommendation Service] Not enough data for user ${userId}. Aborting.`);
         throw new Error('Not enough practice data to generate a study plan. Please complete more practice questions.');
     }
 
     // Process the history into a summary format for the AI
     const summary = history.reduce((acc, attempt) => {
+        // Ensure questionData exists and has subject/type
+        if (!attempt.questionData || !attempt.questionData.subject || !attempt.questionData.type) {
+            console.warn("[Recommendation Service] Skipping record with missing question data:", attempt);
+            return acc;
+        }
+
         const subject = attempt.questionData.subject;
         const type = attempt.questionData.type;
         const key = `${subject} - ${type}`;
@@ -54,8 +67,27 @@ const generateStudyPlan = async (userId) => {
         return `${key}: ${accuracy}% accuracy (${value.correct}/${value.total} correct)`;
     }).join('\n');
     
-    const studyPlan = await getStudyPlan(historySummaryForPrompt);
-    return studyPlan;
+    // --- DEBUG ---
+    console.log("[Recommendation Service] Generated summary for AI prompt:");
+    console.log(historySummaryForPrompt);
+    console.log("----------------------------------------------------");
+
+    try {
+        console.log("[Recommendation Service] Calling Gemini service to get study plan...");
+        const studyPlan = await getStudyPlan(historySummaryForPrompt);
+        
+        // --- DEBUG ---
+        console.log("[Recommendation Service] Successfully received study plan from AI.");
+        console.log("Strengths:", studyPlan.strengths);
+        console.log("Weaknesses:", studyPlan.weaknesses);
+
+        return studyPlan;
+    } catch(error) {
+        // --- DEBUG ---
+        console.error("[Recommendation Service] Error calling getStudyPlan from Gemini service.");
+        console.error(error);
+        throw error; // Re-throw the error to be handled by the route
+    }
 };
 
 module.exports = { generateStudyPlan };
