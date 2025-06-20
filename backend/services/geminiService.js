@@ -11,8 +11,6 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// --- SCHEMAS FOR STRUCTURED OUTPUT --- //
-
 const SAT_QUESTION_SCHEMA_ITEM = {
     type: "OBJECT",
     properties: {
@@ -79,6 +77,32 @@ const SAT_TEST_SCHEMA = {
     required: ["title", "type", "readingSection", "writingSection", "mathSection"]
 };
 
+const STUDY_PLAN_SCHEMA = {
+    type: "OBJECT",
+    properties: {
+        strengths: {
+            type: "ARRAY",
+            items: { type: "STRING" }
+        },
+        weaknesses: {
+            type: "ARRAY",
+            items: { type: "STRING" }
+        },
+        dailyPlan: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    day: { type: "STRING" },
+                    tasks: { type: "ARRAY", items: { type: "STRING" } }
+                },
+                required: ["day", "tasks"]
+            }
+        }
+    },
+    required: ["strengths", "weaknesses", "dailyPlan"]
+};
+
 
 // --- HELPER FUNCTIONS --- //
 
@@ -121,7 +145,6 @@ const generateSatPassage = async (genre, wordCount, topic = '') => {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: {
                 responseMimeType: "application/json",
-                // Use the correct schema for a passage without questions
                 responseSchema: SAT_PASSAGE_SCHEMA_STANDALONE
             }
         };
@@ -212,6 +235,43 @@ const generateSatTest = async (testType) => {
     }
 };
 
+/**
+ * Generates a personalized study plan based on a summary of user performance.
+ * @param {string} historySummaryForPrompt - A string summarizing the user's recent performance.
+ * @returns {Promise<object>} The structured study plan.
+ */
+const getStudyPlan = async (historySummaryForPrompt) => {
+    const prompt = `
+    Based on the following summary of a student's recent SAT practice performance, act as an expert SAT tutor.
+    Analyze their strengths and weaknesses and create a concise, actionable 3-day study plan.
+
+    Performance Summary:
+    ${historySummaryForPrompt}
+
+    Your analysis should result in a JSON object with three properties:
+    1.  "strengths": An array of strings, with each string being a specific topic or question type the student is good at. (e.g., "Algebra - Linear equations"). Be encouraging.
+    2.  "weaknesses": An array of strings, with each string being a specific topic or question type the student should focus on. Be constructive.
+    3.  "dailyPlan": An array of objects, one for each of the next 3 days. Each object should have a "day" (e.g., "Day 1") and a "tasks" property, which is an array of 2-3 specific, actionable tasks for that day. Tasks should directly address the identified weaknesses.
+
+    Provide the output as a JSON object adhering to the specified schema.
+    `;
+
+    try {
+        const payload = {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: STUDY_PLAN_SCHEMA
+            }
+        };
+        const result = await geminiModel.generateContent(payload);
+        return JSON.parse(result.response.text());
+    } catch (error) {
+        console.error("Error calling Gemini API for study plan generation:", error);
+        throw new Error(`Gemini study plan generation failed: ${error.message}.`);
+    }
+};
+
 const getChatResponse = async (chatHistory) => {
     const prompt = chatHistory.map(m => `${m.role}: ${m.text}`).join('\n') + "\nmodel:";
     const result = await geminiModel.generateContent(prompt);
@@ -243,5 +303,6 @@ module.exports = {
     solveMathProblem,
     generateAndFormatSatQuestions,
     generateSatPassage,
-    generateSatTest
+    generateSatTest,
+    getStudyPlan
 };
